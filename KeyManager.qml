@@ -2,6 +2,7 @@ import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
 import com.directory 1.0
+import QtQuick.Dialogs 1.3
 
 Item {
     id: keyManager
@@ -24,27 +25,32 @@ Item {
     }
 
     // Back button to return to encryption screen
-    Rectangle {
+    Button {
+        id: backButton
         width: 120
         height: 40
         anchors.right: parent.right
         anchors.top: parent.top
         anchors.margins: 20
-        radius: 5
-        color: "#E74C3C"
+        text: "返回"
+        font.pixelSize: 16
 
-        Text {
-            anchors.centerIn: parent
-            text: "返回"
-            font.pixelSize: 16
-            color: "white"
+        background: Rectangle {
+            radius: 5
+            color: "#E74C3C"
         }
 
-        MouseArea {
-            anchors.fill: parent
-            onClicked: {
-                root.showEnDeCode()
-            }
+        contentItem: Text {
+            text: parent.text
+            font: parent.font
+            color: "white"
+            horizontalAlignment: Text.AlignHCenter
+            verticalAlignment: Text.AlignVCenter
+        }
+
+        onClicked: {
+            // Fixed navigation back to EnDeCode screen
+            root.showEnDeCode()
         }
     }
 
@@ -61,27 +67,21 @@ Item {
         var keys = directoryHandler.getKeyList()
         for (var i = 0; i < keys.length; i++) {
             var keyName = keys[i]
+            var keyType = ""
+
             if (keyName.endsWith(".key")) {
                 keyName = keyName.substring(0, keyName.length - 4)
+                keyType = "RSA"
+            } else if (keyName.endsWith(".aeskey")) {
+                keyName = keyName.substring(0, keyName.length - 7)
+                keyType = "AES"
             }
-            keyModel.append({"name": keyName})
+
+            keyModel.append({"name": keyName, "type": keyType})
         }
     }
 
-    Image {
-        // Background image
-        anchors.fill: parent
-        source: "qrc:/img/bg.jpg"
-        fillMode: Image.PreserveAspectCrop
-    }
-
-    Rectangle {
-        // Semi-transparent overlay
-        anchors.fill: parent
-        color: "#172227"
-        opacity: 0.7
-    }
-
+    // Main content without background image
     ColumnLayout {
         anchors.fill: parent
         anchors.margins: 20
@@ -112,7 +112,8 @@ Item {
                 Layout.preferredWidth: parent.width * 0.4
                 Layout.fillHeight: true
                 color: "#FFFFFF"
-                opacity: 0.9
+                border.width: 1
+                border.color: "#ECECED"
                 radius: 10
 
                 ColumnLayout {
@@ -153,12 +154,25 @@ Item {
                                     source: "qrc:/img/ic_lock.png"
                                 }
 
-                                Text {
+                                Column {
                                     Layout.fillWidth: true
-                                    text: model.name
-                                    font.pixelSize: 16
-                                    color: "#394149"
-                                    elide: Text.ElideRight
+                                    spacing: 4
+
+                                    Text {
+                                        width: parent.width
+                                        text: model.name
+                                        font.pixelSize: 16
+                                        color: "#394149"
+                                        elide: Text.ElideRight
+                                    }
+
+                                    Text {
+                                        width: parent.width
+                                        text: "类型: " + model.type
+                                        font.pixelSize: 12
+                                        color: "#626E7B"
+                                        elide: Text.ElideRight
+                                    }
                                 }
                             }
 
@@ -178,7 +192,8 @@ Item {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 color: "#FFFFFF"
-                opacity: 0.9
+                border.width: 1
+                border.color: "#ECECED"
                 radius: 10
 
                 ColumnLayout {
@@ -193,99 +208,226 @@ Item {
                         color: "#394149"
                     }
 
-                    // Generate new key section
-                    GroupBox {
+                    // Tab bar for key types
+                    TabBar {
+                        id: keyTypeTab
                         Layout.fillWidth: true
-                        title: "生成新RSA密钥对"
 
+                        TabButton {
+                            text: "RSA 密钥"
+                            width: implicitWidth
+                        }
+                        TabButton {
+                            text: "AES 密钥"
+                            width: implicitWidth
+                        }
+                    }
+
+                    StackLayout {
+                        Layout.fillWidth: true
+                        currentIndex: keyTypeTab.currentIndex
+
+                        // RSA Key Generation
                         ColumnLayout {
-                            anchors.fill: parent
                             spacing: 10
 
-                            TextField {
-                                id: newKeyName
+                            GroupBox {
                                 Layout.fillWidth: true
-                                placeholderText: "密钥名称"
-                                font.pixelSize: 16
-                                selectByMouse: true
-                                background: Rectangle {
-                                    radius: 5
-                                    border.width: 1
-                                    border.color: "#ECECED"
+                                title: "生成新RSA密钥对"
+
+                                ColumnLayout {
+                                    anchors.fill: parent
+                                    spacing: 10
+
+                                    TextField {
+                                        id: newRsaKeyName
+                                        Layout.fillWidth: true
+                                        placeholderText: "密钥名称"
+                                        font.pixelSize: 16
+                                        selectByMouse: true
+                                        background: Rectangle {
+                                            radius: 5
+                                            border.width: 1
+                                            border.color: "#ECECED"
+                                        }
+                                    }
+
+                                    TextField {
+                                        id: newRsaKeyPassword
+                                        Layout.fillWidth: true
+                                        placeholderText: "密码 (用于保护私钥)"
+                                        font.pixelSize: 16
+                                        selectByMouse: true
+                                        echoMode: TextInput.Password
+                                        background: Rectangle {
+                                            radius: 5
+                                            border.width: 1
+                                            border.color: "#ECECED"
+                                        }
+                                    }
+
+                                    TextField {
+                                        id: confirmRsaKeyPassword
+                                        Layout.fillWidth: true
+                                        placeholderText: "确认密码"
+                                        font.pixelSize: 16
+                                        selectByMouse: true
+                                        echoMode: TextInput.Password
+                                        background: Rectangle {
+                                            radius: 5
+                                            border.width: 1
+                                            border.color: "#ECECED"
+                                        }
+                                    }
+
+                                    Button {
+                                        Layout.fillWidth: true
+                                        text: "生成RSA密钥"
+                                        font.pixelSize: 16
+                                        height: 40
+
+                                        background: Rectangle {
+                                            radius: 5
+                                            gradient: Gradient {
+                                                orientation: Gradient.Horizontal
+                                                GradientStop { position: 0.0; color: "#02C783"}
+                                                GradientStop { position: 1.0; color: "#31D7A9" }
+                                            }
+                                        }
+
+                                        contentItem: Text {
+                                            text: parent.text
+                                            font: parent.font
+                                            color: "white"
+                                            horizontalAlignment: Text.AlignHCenter
+                                            verticalAlignment: Text.AlignVCenter
+                                        }
+
+                                        onClicked: {
+                                            if (newRsaKeyName.text.length === 0) {
+                                                showStatus("请输入密钥名称")
+                                                return
+                                            }
+
+                                            if (newRsaKeyPassword.text.length === 0) {
+                                                showStatus("请输入密码")
+                                                return
+                                            }
+
+                                            if (newRsaKeyPassword.text !== confirmRsaKeyPassword.text) {
+                                                showStatus("两次输入的密码不一致")
+                                                return
+                                            }
+
+                                            directoryHandler.generateRSAKeyPair(newRsaKeyName.text, newRsaKeyPassword.text)
+                                            newRsaKeyName.text = ""
+                                            newRsaKeyPassword.text = ""
+                                            confirmRsaKeyPassword.text = ""
+                                        }
+                                    }
                                 }
                             }
+                        }
 
-                            TextField {
-                                id: newKeyPassword
+                        // AES Key Generation
+                        ColumnLayout {
+                            spacing: 10
+
+                            GroupBox {
                                 Layout.fillWidth: true
-                                placeholderText: "密码 (用于保护私钥)"
-                                font.pixelSize: 16
-                                selectByMouse: true
-                                echoMode: TextInput.Password
-                                background: Rectangle {
-                                    radius: 5
-                                    border.width: 1
-                                    border.color: "#ECECED"
-                                }
-                            }
+                                title: "生成新AES密钥"
 
-                            TextField {
-                                id: confirmKeyPassword
-                                Layout.fillWidth: true
-                                placeholderText: "确认密码"
-                                font.pixelSize: 16
-                                selectByMouse: true
-                                echoMode: TextInput.Password
-                                background: Rectangle {
-                                    radius: 5
-                                    border.width: 1
-                                    border.color: "#ECECED"
-                                }
-                            }
+                                ColumnLayout {
+                                    anchors.fill: parent
+                                    spacing: 10
 
-                            Button {
-                                Layout.fillWidth: true
-                                text: "生成密钥"
-                                font.pixelSize: 16
-                                height: 40
-
-                                background: Rectangle {
-                                    radius: 5
-                                    gradient: Gradient {
-                                        orientation: Gradient.Horizontal
-                                        GradientStop { position: 0.0; color: "#02C783"}
-                                        GradientStop { position: 1.0; color: "#31D7A9" }
-                                    }
-                                }
-
-                                contentItem: Text {
-                                    text: parent.text
-                                    font: parent.font
-                                    color: "white"
-                                    horizontalAlignment: Text.AlignHCenter
-                                    verticalAlignment: Text.AlignVCenter
-                                }
-
-                                onClicked: {
-                                    if (newKeyName.text.length === 0) {
-                                        showStatus("请输入密钥名称")
-                                        return
+                                    TextField {
+                                        id: newAesKeyName
+                                        Layout.fillWidth: true
+                                        placeholderText: "密钥名称"
+                                        font.pixelSize: 16
+                                        selectByMouse: true
+                                        background: Rectangle {
+                                            radius: 5
+                                            border.width: 1
+                                            border.color: "#ECECED"
+                                        }
                                     }
 
-                                    if (newKeyPassword.text.length === 0) {
-                                        showStatus("请输入密码")
-                                        return
+                                    TextField {
+                                        id: newAesKeyPassword
+                                        Layout.fillWidth: true
+                                        placeholderText: "密码"
+                                        font.pixelSize: 16
+                                        selectByMouse: true
+                                        echoMode: TextInput.Password
+                                        background: Rectangle {
+                                            radius: 5
+                                            border.width: 1
+                                            border.color: "#ECECED"
+                                        }
                                     }
 
-                                    if (newKeyPassword.text !== confirmKeyPassword.text) {
-                                        showStatus("两次输入的密码不一致")
-                                        return
+                                    TextField {
+                                        id: confirmAesKeyPassword
+                                        Layout.fillWidth: true
+                                        placeholderText: "确认密码"
+                                        font.pixelSize: 16
+                                        selectByMouse: true
+                                        echoMode: TextInput.Password
+                                        background: Rectangle {
+                                            radius: 5
+                                            border.width: 1
+                                            border.color: "#ECECED"
+                                        }
                                     }
 
-                                    directoryHandler.generateRSAKeyPair(newKeyName.text, newKeyPassword.text)
-                                    newKeyName.text = ""
-                                    newKeyPassword.text = ""
-                                    confirmKeyPassword.text = ""
+                                    Button {
+                                        Layout.fillWidth: true
+                                        text: "生成AES密钥"
+                                        font.pixelSize: 16
+                                        height: 40
+
+                                        background: Rectangle {
+                                            radius: 5
+                                            gradient: Gradient {
+                                                orientation: Gradient.Horizontal
+                                                GradientStop { position: 0.0; color: "#1AB3F7"}
+                                                GradientStop { position: 1.0; color: "#6069FF" }
+                                            }
+                                        }
+
+                                        contentItem: Text {
+                                            text: parent.text
+                                            font: parent.font
+                                            color: "white"
+                                            horizontalAlignment: Text.AlignHCenter
+                                            verticalAlignment: Text.AlignVCenter
+                                        }
+
+                                        onClicked: {
+                                            if (newAesKeyName.text.length === 0) {
+                                                showStatus("请输入密钥名称")
+                                                return
+                                            }
+
+                                            if (newAesKeyPassword.text.length === 0) {
+                                                showStatus("请输入密码")
+                                                return
+                                            }
+
+                                            if (newAesKeyPassword.text !== confirmAesKeyPassword.text) {
+                                                showStatus("两次输入的密码不一致")
+                                                return
+                                            }
+
+                                            // Store AES key - we'll need to add this function to the CryptoManager
+                                            directoryHandler.generateAESKey(newAesKeyName.text, newAesKeyPassword.text)
+                                            newAesKeyName.text = ""
+                                            newAesKeyPassword.text = ""
+                                            confirmAesKeyPassword.text = ""
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -309,16 +451,40 @@ Item {
                                 color: "#394149"
                             }
 
-                            TextField {
-                                id: exportPath
+                            // Added file dialog for export path
+                            FileDialog {
+                                id: exportKeyDialog
+                                title: "选择密钥导出位置"
+                                folder: shortcuts.home
+                                selectExisting: false
+                                selectMultiple: false
+                                nameFilters: ["Key files (*.key)"]
+
+                                onAccepted: {
+                                    var path = fileUrl.toString().replace(/^(file:\/{3})|(qrc:\/{2})|(http:\/{2})/,"")
+                                    exportPath.text = path
+                                }
+                            }
+
+                            RowLayout {
                                 Layout.fillWidth: true
-                                placeholderText: "导出路径 (包含文件名)"
-                                font.pixelSize: 16
-                                selectByMouse: true
-                                background: Rectangle {
-                                    radius: 5
-                                    border.width: 1
-                                    border.color: "#ECECED"
+
+                                TextField {
+                                    id: exportPath
+                                    Layout.fillWidth: true
+                                    placeholderText: "导出路径 (包含文件名)"
+                                    font.pixelSize: 16
+                                    selectByMouse: true
+                                    background: Rectangle {
+                                        radius: 5
+                                        border.width: 1
+                                        border.color: "#ECECED"
+                                    }
+                                }
+
+                                Button {
+                                    text: "浏览"
+                                    onClicked: exportKeyDialog.open()
                                 }
                             }
 
@@ -424,16 +590,39 @@ Item {
                             anchors.fill: parent
                             spacing: 10
 
-                            TextField {
-                                id: importFilePath
+                            // Added file dialog for import path
+                            FileDialog {
+                                id: importKeyDialog
+                                title: "选择要导入的密钥文件"
+                                folder: shortcuts.home
+                                selectExisting: true
+                                selectMultiple: false
+
+                                onAccepted: {
+                                    var path = fileUrl.toString().replace(/^(file:\/{3})|(qrc:\/{2})|(http:\/{2})/,"")
+                                    importFilePath.text = path
+                                }
+                            }
+
+                            RowLayout {
                                 Layout.fillWidth: true
-                                placeholderText: "密钥文件路径"
-                                font.pixelSize: 16
-                                selectByMouse: true
-                                background: Rectangle {
-                                    radius: 5
-                                    border.width: 1
-                                    border.color: "#ECECED"
+
+                                TextField {
+                                    id: importFilePath
+                                    Layout.fillWidth: true
+                                    placeholderText: "密钥文件路径"
+                                    font.pixelSize: 16
+                                    selectByMouse: true
+                                    background: Rectangle {
+                                        radius: 5
+                                        border.width: 1
+                                        border.color: "#ECECED"
+                                    }
+                                }
+
+                                Button {
+                                    text: "浏览"
+                                    onClicked: importKeyDialog.open()
                                 }
                             }
 

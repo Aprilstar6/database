@@ -1,9 +1,8 @@
 import QtQuick 2.15
 import QtQuick.Window 2.15
 import QtQuick.Controls 2.15
-import "./" as Qml
-import "database.js" as DB
 import QtQuick.LocalStorage 2.0
+import "database.js" as DB
 
 Window {
     id: root
@@ -11,36 +10,34 @@ Window {
     height: 800
     visible: true
     title: qsTr("高级文件加解密系统")
-    color: "#172227"
+    color: "#F7F9FC"
 
     // Global properties
     property string loginAccount: ""
     property string loginPasswd: ""
-    property string filePath: "./"  // Path for encryption/decryption files
-    property string tipTitle: ""   // Title for status messages
+    property string filePath: "./"
+    property string tipTitle: ""
 
-    // Background image
-    Image {
+    // Each screen is a separate Loader
+    Loader {
+        id: loginLoader
         anchors.fill: parent
-        source: "qrc:/img/bg.jpg"
-        fillMode: Image.PreserveAspectCrop
+        source: "Login.qml"
+        active: true
     }
 
-    // Main components - only one visible at a time
-    Qml.Login {
-        id: login
-        visible: true
-        opacity: 0.95
+    Loader {
+        id: endeCodeLoader
+        anchors.fill: parent
+        source: "EnDeCode.qml"
+        active: false
     }
 
-    Qml.EnDeCode {
-        id: enDeCode
-        visible: false
-    }
-
-    Qml.KeyManager {
-        id: keyManager
-        visible: false
+    Loader {
+        id: keyManagerLoader
+        anchors.fill: parent
+        source: "KeyManager.qml"
+        active: false
     }
 
     // Global Status/Message Popup
@@ -55,6 +52,8 @@ Window {
         background: Rectangle {
             radius: 12
             color: "#FFFFFF"
+            border.width: 1
+            border.color: "#ECECED"
         }
 
         contentItem: Item {
@@ -126,23 +125,32 @@ Window {
         statusPopup.open()
     }
 
-    // Navigation functions
+    // Navigation functions using Loaders instead of visibility
     function showLogin() {
-        login.visible = true
-        enDeCode.visible = false
-        keyManager.visible = false
+        loginLoader.active = true
+        endeCodeLoader.active = false
+        keyManagerLoader.active = false
     }
 
     function showEnDeCode() {
-        login.visible = false
-        enDeCode.visible = true
-        keyManager.visible = false
+        loginLoader.active = false
+        endeCodeLoader.active = true
+        keyManagerLoader.active = false
+
+        // Trigger refresh if needed
+        if (endeCodeLoader.item) {
+            endeCodeLoader.item.refreshFileList()
+        }
     }
 
     function showKeyManager() {
-        login.visible = false
-        enDeCode.visible = false
-        keyManager.visible = true
-        keyManager.refreshKeys()
+        loginLoader.active = false
+        endeCodeLoader.active = false
+        keyManagerLoader.active = true
+
+        // Trigger refresh if needed
+        if (keyManagerLoader.item) {
+            keyManagerLoader.item.refreshKeys()
+        }
     }
 }

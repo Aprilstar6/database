@@ -21,6 +21,7 @@ public:
 
     // Key management
     Q_INVOKABLE bool generateRSAKeyPair(const QString &name, const QString &password);
+    Q_INVOKABLE bool generateAESKey(const QString &name, const QString &password);
     Q_INVOKABLE QStringList getKeyList();
     Q_INVOKABLE bool deleteKey(const QString &keyName);
     Q_INVOKABLE bool exportKey(const QString &keyName, const QString &exportPath, const QString &password);
@@ -51,7 +52,9 @@ private:
     QByteArray generateAESKey(const QString &password, const QByteArray &salt);
     QByteArray generateRandomBytes(int length);
     bool saveKeyToFile(const QString &keyName, const QByteArray &publicKey, const QByteArray &encryptedPrivateKey);
+    bool saveAESKeyToFile(const QString &keyName, const QByteArray &encryptedKey, const QByteArray &salt);
     bool loadKeyFromFile(const QString &keyName, QByteArray &publicKey, QByteArray &encryptedPrivateKey);
+    bool loadAESKeyFromFile(const QString &keyName, QByteArray &encryptedKey, QByteArray &salt);
     QString getKeysFolderPath();
 
     // Encryption helpers

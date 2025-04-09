@@ -27,7 +27,7 @@ CryptoManager::CryptoManager(QObject *parent) : QObject(parent)
 bool CryptoManager::generateRSAKeyPair(const QString &name, const QString &password)
 {
     // Check if key with this name already exists
-    if (getKeyList().contains(name)) {
+    if (getKeyList().contains(name + ".key")) {
         emit operationComplete(false, "A key with this name already exists");
         return false;
     }
@@ -80,15 +80,71 @@ bool CryptoManager::generateRSAKeyPair(const QString &name, const QString &passw
     return result;
 }
 
+bool CryptoManager::generateAESKey(const QString &name, const QString &password)
+{
+    // Check if key with this name already exists
+    if (getKeyList().contains(name + ".aeskey")) {
+        emit operationComplete(false, "A key with this name already exists");
+        return false;
+    }
+
+    // Generate random salt
+    QByteArray salt = generateRandomBytes(16);
+
+    // Generate AES key from password and salt
+    QByteArray aesKey = generateAESKey(password, salt);
+
+    // Encrypt the AES key with password (for storage)
+    QByteArray iv = generateRandomBytes(16);
+    QByteArray encryptedKey = aesEncrypt(aesKey, generateAESKey(password, salt), iv);
+
+    // Combine IV with encrypted key
+    encryptedKey = iv + encryptedKey;
+
+    // Save key
+    bool result = saveAESKeyToFile(name, encryptedKey, salt);
+
+    if (result) {
+        emit operationComplete(true, "AES key generated and saved successfully");
+    } else {
+        emit operationComplete(false, "Failed to save AES key");
+    }
+
+    return result;
+}
+
 QStringList CryptoManager::getKeyList()
 {
     QDir keysDir(getKeysFolderPath());
-    return keysDir.entryList(QStringList() << "*.key", QDir::Files, QDir::Name);
+    QStringList filters;
+    filters << "*.key" << "*.aeskey";
+    return keysDir.entryList(filters, QDir::Files, QDir::Name);
 }
 
 bool CryptoManager::deleteKey(const QString &keyName)
 {
-    QString keyPath = getKeysFolderPath() + "/" + keyName + ".key";
+    QString keyPath;
+    if (keyName.endsWith(".key") || keyName.endsWith(".aeskey")) {
+        keyPath = getKeysFolderPath() + "/" + keyName;
+    } else {
+        // Check if RSA key exists
+        QString rsaKeyPath = getKeysFolderPath() + "/" + keyName + ".key";
+        QFile rsaFile(rsaKeyPath);
+
+        // Check if AES key exists
+        QString aesKeyPath = getKeysFolderPath() + "/" + keyName + ".aeskey";
+        QFile aesFile(aesKeyPath);
+
+        if (rsaFile.exists()) {
+            keyPath = rsaKeyPath;
+        } else if (aesFile.exists()) {
+            keyPath = aesKeyPath;
+        } else {
+            emit operationComplete(false, "Key not found");
+            return false;
+        }
+    }
+
     QFile file(keyPath);
     if (file.exists()) {
         bool success = file.remove();
@@ -106,25 +162,60 @@ bool CryptoManager::deleteKey(const QString &keyName)
 
 bool CryptoManager::exportKey(const QString &keyName, const QString &exportPath, const QString &password)
 {
-    QByteArray publicKey, encryptedPrivateKey;
-    if (!loadKeyFromFile(keyName, publicKey, encryptedPrivateKey)) {
-        emit operationComplete(false, "Failed to load key");
-        return false;
+    bool isRSA = false;
+    bool isAES = false;
+    QByteArray publicKey, encryptedPrivateKey; // For RSA
+    QByteArray encryptedKey, salt; // For AES
+
+    // Determine key type and load it
+    if (keyName.endsWith(".key")) {
+        isRSA = true;
+        if (!loadKeyFromFile(keyName, publicKey, encryptedPrivateKey)) {
+            emit operationComplete(false, "Failed to load RSA key");
+            return false;
+        }
+    } else if (keyName.endsWith(".aeskey")) {
+        isAES = true;
+        if (!loadAESKeyFromFile(keyName, encryptedKey, salt)) {
+            emit operationComplete(false, "Failed to load AES key");
+            return false;
+        }
+    } else {
+        // Try to load as RSA first
+        if (loadKeyFromFile(keyName, publicKey, encryptedPrivateKey)) {
+            isRSA = true;
+        }
+        // If RSA failed, try AES
+        else if (loadAESKeyFromFile(keyName, encryptedKey, salt)) {
+            isAES = true;
+        }
+        else {
+            emit operationComplete(false, "Failed to load key");
+            return false;
+        }
     }
 
     // Create export data structure
     QJsonObject exportData;
     exportData["name"] = keyName;
-    exportData["public_key"] = QString(publicKey.toBase64());
-    exportData["private_key"] = QString(encryptedPrivateKey.toBase64());
+
+    if (isRSA) {
+        exportData["key_type"] = "RSA";
+        exportData["public_key"] = QString(publicKey.toBase64());
+        exportData["private_key"] = QString(encryptedPrivateKey.toBase64());
+    } else if (isAES) {
+        exportData["key_type"] = "AES";
+        exportData["encrypted_key"] = QString(encryptedKey.toBase64());
+        exportData["salt"] = QString(salt.toBase64());
+    }
 
     // Create JSON document
     QJsonDocument doc(exportData);
     QByteArray jsonData = doc.toJson();
 
     // Encrypt the JSON with password
-    QByteArray salt = generateRandomBytes(16);
-    QByteArray key = generateAESKey(password, salt);
+    QByteArray exportSalt = generateRandomBytes(16);
+    QByteArray key = generateAESKey(password, exportSalt);
     QByteArray iv = generateRandomBytes(16);
     QByteArray encryptedData = aesEncrypt(jsonData, key, iv);
 
@@ -141,7 +232,7 @@ bool CryptoManager::exportKey(const QString &keyName, const QString &exportPath,
     }
 
     // Format: SALT(16) + IV(16) + ENCRYPTED_DATA
-    file.write(salt);
+    file.write(exportSalt);
     file.write(iv);
     file.write(encryptedData);
     file.close();
@@ -189,17 +280,40 @@ bool CryptoManager::importKey(const QString &importPath, const QString &password
 
     QJsonObject obj = doc.object();
     QString keyName = obj["name"].toString();
-    QByteArray publicKey = QByteArray::fromBase64(obj["public_key"].toString().toLatin1());
-    QByteArray encryptedPrivateKey = QByteArray::fromBase64(obj["private_key"].toString().toLatin1());
+    QString keyType = obj["key_type"].toString();
 
-    // Check if key name already exists
-    if (getKeyList().contains(keyName + ".key")) {
-        emit operationComplete(false, "A key with this name already exists");
+    bool result = false;
+
+    if (keyType == "RSA") {
+        QByteArray publicKey = QByteArray::fromBase64(obj["public_key"].toString().toLatin1());
+        QByteArray encryptedPrivateKey = QByteArray::fromBase64(obj["private_key"].toString().toLatin1());
+
+        // Check if key name already exists
+        if (getKeyList().contains(keyName + ".key")) {
+            emit operationComplete(false, "A key with this name already exists");
+            return false;
+        }
+
+        // Save the imported RSA key
+        result = saveKeyToFile(keyName, publicKey, encryptedPrivateKey);
+    }
+    else if (keyType == "AES") {
+        QByteArray encryptedKey = QByteArray::fromBase64(obj["encrypted_key"].toString().toLatin1());
+        QByteArray saltData = QByteArray::fromBase64(obj["salt"].toString().toLatin1());
+
+        // Check if key name already exists
+        if (getKeyList().contains(keyName + ".aeskey")) {
+            emit operationComplete(false, "A key with this name already exists");
+            return false;
+        }
+
+        // Save the imported AES key
+        result = saveAESKeyToFile(keyName, encryptedKey, saltData);
+    }
+    else {
+        emit operationComplete(false, "Unknown key type");
         return false;
     }
-
-    // Save the imported key
-    bool result = saveKeyToFile(keyName, publicKey, encryptedPrivateKey);
 
     if (result) {
         emit operationComplete(true, "Key imported successfully");
@@ -659,6 +773,7 @@ QByteArray CryptoManager::generateRandomBytes(int length)
 bool CryptoManager::saveKeyToFile(const QString &keyName, const QByteArray &publicKey, const QByteArray &encryptedPrivateKey)
 {
     QJsonObject keyData;
+    keyData["key_type"] = "RSA";
     keyData["public_key"] = QString(publicKey.toBase64());
     keyData["private_key"] = QString(encryptedPrivateKey.toBase64());
 
@@ -666,6 +781,27 @@ bool CryptoManager::saveKeyToFile(const QString &keyName, const QByteArray &publ
     QByteArray jsonData = doc.toJson();
 
     QFile file(getKeysFolderPath() + "/" + keyName + ".key");
+    if (!file.open(QIODevice::WriteOnly)) {
+        return false;
+    }
+
+    file.write(jsonData);
+    file.close();
+
+    return true;
+}
+
+bool CryptoManager::saveAESKeyToFile(const QString &keyName, const QByteArray &encryptedKey, const QByteArray &salt)
+{
+    QJsonObject keyData;
+    keyData["key_type"] = "AES";
+    keyData["encrypted_key"] = QString(encryptedKey.toBase64());
+    keyData["salt"] = QString(salt.toBase64());
+
+    QJsonDocument doc(keyData);
+    QByteArray jsonData = doc.toJson();
+
+    QFile file(getKeysFolderPath() + "/" + keyName + ".aeskey");
     if (!file.open(QIODevice::WriteOnly)) {
         return false;
     }
@@ -697,8 +833,49 @@ bool CryptoManager::loadKeyFromFile(const QString &keyName, QByteArray &publicKe
     }
 
     QJsonObject obj = doc.object();
+
+    // Check key type
+    QString keyType = obj["key_type"].toString();
+    if (keyType != "RSA" && !keyType.isEmpty()) {
+        return false;
+    }
+
     publicKey = QByteArray::fromBase64(obj["public_key"].toString().toLatin1());
     encryptedPrivateKey = QByteArray::fromBase64(obj["private_key"].toString().toLatin1());
+
+    return true;
+}
+
+bool CryptoManager::loadAESKeyFromFile(const QString &keyName, QByteArray &encryptedKey, QByteArray &salt)
+{
+    QString fileName = keyName;
+    if (!fileName.endsWith(".aeskey")) {
+        fileName += ".aeskey";
+    }
+
+    QFile file(getKeysFolderPath() + "/" + fileName);
+    if (!file.open(QIODevice::ReadOnly)) {
+        return false;
+    }
+
+    QByteArray jsonData = file.readAll();
+    file.close();
+
+    QJsonDocument doc = QJsonDocument::fromJson(jsonData);
+    if (doc.isNull() || !doc.isObject()) {
+        return false;
+    }
+
+    QJsonObject obj = doc.object();
+
+    // Check key type
+    QString keyType = obj["key_type"].toString();
+    if (keyType != "AES") {
+        return false;
+    }
+
+    encryptedKey = QByteArray::fromBase64(obj["encrypted_key"].toString().toLatin1());
+    salt = QByteArray::fromBase64(obj["salt"].toString().toLatin1());
 
     return true;
 }

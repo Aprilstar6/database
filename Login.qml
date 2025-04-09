@@ -16,12 +16,17 @@ Item {
         anchors.fill: parent
     }
 
-    // Main login container
-    Image {
-        id: loginbg
+    // Login form with plain background
+    Rectangle {
+        id: loginContainer
+        width: 680
+        height: 450
         x: parent.width / 2 - width / 2
         y: parent.height / 2 - height / 2
-        source: "qrc:/img/bg_login.png"
+        color: "#FFFFFF"
+        radius: 10
+        border.width: 1
+        border.color: "#ECECED"
 
         // Title
         Label {

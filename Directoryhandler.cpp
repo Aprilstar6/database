@@ -136,6 +136,12 @@ bool DirectoryHandler::generateRSAKeyPair(const QString &name, const QString &pa
     return cryptoManager->generateRSAKeyPair(name, password);
 }
 
+// New AES key generation function
+bool DirectoryHandler::generateAESKey(const QString &name, const QString &password)
+{
+    return cryptoManager->generateAESKey(name, password);
+}
+
 QStringList DirectoryHandler::getKeyList()
 {
     return cryptoManager->getKeyList();
@@ -154,4 +160,46 @@ bool DirectoryHandler::exportKey(const QString &keyName, const QString &exportPa
 bool DirectoryHandler::importKey(const QString &importPath, const QString &password)
 {
     return cryptoManager->importKey(importPath, password);
+}
+
+// 将此方法添加到 DirectoryHandler.cpp 文件中：
+
+bool DirectoryHandler::copyFile(const QString &sourceFile, const QString &destFile)
+{
+    // 清理路径，处理文件URL（如果有必要）
+    QString cleanedSource = sourceFile;
+
+    // 判断系统平台，适当处理文件路径
+#ifdef Q_OS_WIN
+    // Windows需要去掉最前面的斜杠
+    if (cleanedSource.startsWith("/")) {
+        cleanedSource = cleanedSource.mid(1);
+    }
+#endif
+
+    QFile source(cleanedSource);
+    QFile dest(destFile);
+
+    // 确保源文件存在
+    if (!source.exists()) {
+        emit operationComplete(false, "源文件不存在: " + cleanedSource);
+        return false;
+    }
+
+    // 如果目标文件已存在，先删除它
+    if (dest.exists()) {
+        if (!dest.remove()) {
+            emit operationComplete(false, "无法覆盖目标文件");
+            return false;
+        }
+    }
+
+    // 复制文件
+    if (!source.copy(destFile)) {
+        emit operationComplete(false, "文件复制失败: " + source.errorString());
+        return false;
+    }
+
+    emit operationComplete(true, "文件复制成功");
+    return true;
 }

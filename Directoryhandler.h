@@ -13,6 +13,7 @@ public:
 
     // File handling
     Q_INVOKABLE void listFiles(const QString &directoryPath, const QStringList &suffixes);
+    Q_INVOKABLE bool copyFile(const QString &sourceFile, const QString &destFile);
 
     // Legacy Encryption/Decryption (backward compatibility)
     Q_INVOKABLE void enCodeFile(const QString &filePath, const QString &outputPath, const QString &key);
@@ -26,12 +27,13 @@ public:
     Q_INVOKABLE bool encryptFileRSA(const QString &inputFile, const QString &outputFile, const QString &keyName);
     Q_INVOKABLE bool decryptFileRSA(const QString &inputFile, const QString &outputFile, const QString &keyName, const QString &password);
 
-    // Hybrid AES+RSA Encryption/Decryption
+    // Hybrid encryption (AES+RSA)
     Q_INVOKABLE bool encryptFileHybrid(const QString &inputFile, const QString &outputFile, const QString &keyName);
     Q_INVOKABLE bool decryptFileHybrid(const QString &inputFile, const QString &outputFile, const QString &keyName, const QString &password);
 
-    // Key Management
+    // Key Management functions
     Q_INVOKABLE bool generateRSAKeyPair(const QString &name, const QString &password);
+    Q_INVOKABLE bool generateAESKey(const QString &name, const QString &password);
     Q_INVOKABLE QStringList getKeyList();
     Q_INVOKABLE bool deleteKey(const QString &keyName);
     Q_INVOKABLE bool exportKey(const QString &keyName, const QString &exportPath, const QString &password);
