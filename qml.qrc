@@ -1,0 +1,17 @@
+<RCC>
+    <qresource prefix="/">
+        <file>main.qml</file>
+        <file>Login.qml</file>
+        <file>img/bg_login.png</file>
+        <file>img/ic_eye.png</file>
+        <file>img/ic_eye_open.png</file>
+        <file>img/ic_lock.png</file>
+        <file>img/ic_user.png</file>
+        <file>database.js</file>
+        <file>EnDeCode.qml</file>
+        <file>img/codebg.jpg</file>
+        <file>img/file.jpg</file>
+        <file>img/bg.jpg</file>
+        <file>KeyManager.qml</file>
+    </qresource>
+</RCC>
