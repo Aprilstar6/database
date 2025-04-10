@@ -8,6 +8,24 @@ Item {
     property int funType: 0 // 0 = Login, 1 = Update Account
     property string titleStr: funType ? "设置账号" : "用户登录"
     property string btnStr: funType ? "修改" : "登录"
+    
+    // 密码复杂度验证函数
+    function validatePassword(password) {
+        // 检查是否包含至少一个大写字母
+        var hasUpperCase = /[A-Z]/.test(password);
+        // 检查是否包含至少一个小写字母
+        var hasLowerCase = /[a-z]/.test(password);
+        // 检查是否包含至少一个数字
+        var hasDigit = /[0-9]/.test(password);
+        // 检查是否包含至少一个特殊符号
+        var hasSpecial = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password);
+        
+        // 所有条件都必须满足
+        return hasUpperCase && hasLowerCase && hasDigit && hasSpecial;
+    }
+    
+    // 密码复杂度提示文本
+    property string passwordRequirements: "密码必须包含：大写字母、小写字母、数字和特殊符号"
 
     anchors.fill: parent
 
@@ -117,6 +135,18 @@ Item {
                     anchors.fill: parent
                     color: "transparent"
                 }
+                
+                // 添加密码验证反馈
+                onTextChanged: {
+                    if (funType === 1 && text.length > 0) {
+                        var valid = validatePassword(text);
+                        passwordHint.visible = !valid;
+                        passwordRequirementsText.visible = true;
+                    } else {
+                        passwordHint.visible = false;
+                        passwordRequirementsText.visible = funType === 1;
+                    }
+                }
             }
 
             // Toggle password visibility
@@ -131,6 +161,37 @@ Item {
                         passwordMode = !passwordMode
                     }
                 }
+            }
+        }
+        
+        // 密码复杂度要求文本
+        Text {
+            id: passwordRequirementsText
+            x: 136
+            y: 285
+            width: 410
+            text: passwordRequirements
+            font.pixelSize: 12
+            color: "#626E7B"
+            visible: funType === 1
+        }
+        
+        // 密码不符合要求提示
+        Rectangle {
+            id: passwordHint
+            x: 136
+            y: 285
+            width: 410
+            height: 25
+            color: "#FFEDED"
+            visible: false
+            radius: 3
+            
+            Text {
+                anchors.centerIn: parent
+                text: "密码不符合复杂度要求"
+                font.pixelSize: 12
+                color: "#EB1C24"
             }
         }
 
@@ -160,6 +221,12 @@ Item {
                     if (funType === 1) {
                         // Update account
                         if (accountText.text.length !== 0 && passwordText.text.length !== 0) {
+                            // 添加密码复杂度检查
+                            if (!validatePassword(passwordText.text)) {
+                                root.showStatus("密码不符合复杂度要求")
+                                return
+                            }
+                            
                             root.updateUser(accountText.text, passwordText.text)
                             root.loginAccount = accountText.text
                             root.loginPasswd = passwordText.text
@@ -220,6 +287,8 @@ Item {
                     passwordText.text = ""
                     passwordText.color = "#394149"
                     accountText.color = "#394149"
+                    // 显示密码要求
+                    passwordRequirementsText.visible = true
                 }
             }
         }

@@ -28,15 +28,16 @@ Item {
     Button {
         id: backButton
         width: 120
-        height: 40
+        height: 60
         anchors.right: parent.right
         anchors.top: parent.top
         anchors.margins: 20
         text: "返回"
         font.pixelSize: 16
+        z: 1 // 确保按钮显示在最上层
 
         background: Rectangle {
-            radius: 5
+            radius: 10
             color: "#E74C3C"
         }
 
@@ -88,6 +89,7 @@ Item {
         spacing: 20
 
         Rectangle {
+            id: titleBar
             Layout.fillWidth: true
             height: 60
             color: "#5FAAE3"
@@ -99,6 +101,43 @@ Item {
                 font.pixelSize: 26
                 font.bold: true
                 color: "white"
+            }
+            
+            // 添加关闭图标
+            Rectangle {
+                id: closeButton
+                width: 32
+                height: 32
+                radius: 16
+                color: "#E74C3C"
+                anchors.right: parent.right
+                anchors.top: parent.top
+                anchors.rightMargin: 10
+                anchors.topMargin: 5
+                
+                Text {
+                    anchors.centerIn: parent
+                    text: "×"
+                    font.pixelSize: 24
+                    font.bold: true
+                    color: "white"
+                }
+                
+                MouseArea {
+                    anchors.fill: parent
+                    onClicked: {
+                        root.showEnDeCode()
+                    }
+                    
+                    // 添加鼠标悬停效果
+                    hoverEnabled: true
+                    onEntered: {
+                        closeButton.color = Qt.darker(closeButton.color, 1.1)
+                    }
+                    onExited: {
+                        closeButton.color = "#E74C3C"
+                    }
+                }
             }
         }
 
