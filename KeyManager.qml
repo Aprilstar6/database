@@ -1,8 +1,8 @@
 import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
+import Qt.labs.platform 1.1
 import com.directory 1.0
-// import QtQuick.Dialogs 1.3
 
 Item {
     id: keyManager
@@ -452,21 +452,27 @@ Item {
                             }
 
                             // Added file dialog for export path
-                            /*
                             FileDialog {
                                 id: exportKeyDialog
                                 title: "选择密钥导出位置"
-                                folder: shortcuts.home
-                                selectExisting: false
-                                selectMultiple: false
+                                folder: "file:///home"
                                 nameFilters: ["Key files (*.key)"]
+                                fileMode: FileDialog.SaveFile
 
                                 onAccepted: {
-                                    var path = fileUrl.toString().replace(/^(file:\/{3})|(qrc:\/{2})|(http:\/{2})/,"")
+                                    var path = file.toString();
+                                    console.log("导出密钥 - 原始路径: " + path);
+                                    
+                                    if (path.startsWith("file:///")) {
+                                        path = path.replace("file:///", "/");
+                                    } else {
+                                        path = path.replace(/^(file:\/{2,3})|(qrc:\/{2})|(http:\/{2})/,"");
+                                    }
+                                    
+                                    console.log("导出密钥 - 处理后路径: " + path);
                                     exportPath.text = path
                                 }
                             }
-                            */
 
                             RowLayout {
                                 Layout.fillWidth: true
@@ -474,7 +480,7 @@ Item {
                                 TextField {
                                     id: exportPath
                                     Layout.fillWidth: true
-                                    placeholderText: "导出路径 (包含文件名)"
+                                    placeholderText: "密钥导出路径"
                                     font.pixelSize: 16
                                     selectByMouse: true
                                     background: Rectangle {
@@ -486,7 +492,7 @@ Item {
 
                                 Button {
                                     text: "浏览"
-                                    onClicked: exportPathDialog.open()
+                                    onClicked: exportKeyDialog.open()
                                 }
                             }
 
@@ -593,20 +599,27 @@ Item {
                             spacing: 10
 
                             // Added file dialog for import path
-                            /*
                             FileDialog {
                                 id: importKeyDialog
                                 title: "选择要导入的密钥文件"
-                                folder: shortcuts.home
-                                selectExisting: true
-                                selectMultiple: false
+                                folder: "file:///home"
+                                nameFilters: ["Key files (*.key)"]
+                                fileMode: FileDialog.OpenFile
 
                                 onAccepted: {
-                                    var path = fileUrl.toString().replace(/^(file:\/{3})|(qrc:\/{2})|(http:\/{2})/,"")
+                                    var path = file.toString();
+                                    console.log("导入密钥 - 原始路径: " + path);
+                                    
+                                    if (path.startsWith("file:///")) {
+                                        path = path.replace("file:///", "/");
+                                    } else {
+                                        path = path.replace(/^(file:\/{2,3})|(qrc:\/{2})|(http:\/{2})/,"");
+                                    }
+                                    
+                                    console.log("导入密钥 - 处理后路径: " + path);
                                     importFilePath.text = path
                                 }
                             }
-                            */
 
                             RowLayout {
                                 Layout.fillWidth: true
@@ -626,7 +639,7 @@ Item {
 
                                 Button {
                                     text: "浏览"
-                                    onClicked: importPathDialog.open()
+                                    onClicked: importKeyDialog.open()
                                 }
                             }
 
@@ -696,17 +709,28 @@ Item {
     }
 
     // Delete confirmation dialog
-    Dialog {
+    Window {
         id: deleteConfirmDialog
-        anchors.centerIn: parent
         width: 400
         height: 200
-        modal: true
+        flags: Qt.Dialog | Qt.WindowCloseButtonHint
+        modality: Qt.ApplicationModal
+        visible: false
         title: "确认删除"
+        x: parent ? (parent.width - width) / 2 : 0
+        y: parent ? (parent.height - height) / 2 : 0
 
         property string keyName: ""
 
-        contentItem: ColumnLayout {
+        function open() {
+            visible = true;
+        }
+
+        function close() {
+            visible = false;
+        }
+
+        ColumnLayout {
             anchors.fill: parent
             anchors.margins: 20
             spacing: 20
@@ -756,76 +780,6 @@ Item {
                         deleteConfirmDialog.close()
                     }
                 }
-            }
-        }
-    }
-
-    // 自定义文件路径输入对话框（用于导出）
-    Dialog {
-        id: exportPathDialog
-        title: "输入导出路径"
-        standardButtons: Dialog.Ok | Dialog.Cancel
-        modal: true
-        width: 500
-        height: 200
-
-        onAccepted: {
-            if (exportPathInput.text.length > 0) {
-                exportPath.text = exportPathInput.text
-            }
-            exportPathInput.text = ""
-        }
-
-        contentItem: ColumnLayout {
-            spacing: 20
-            anchors.fill: parent
-            anchors.margins: 20
-
-            Text {
-                text: "请输入密钥导出的完整路径:"
-                font.pixelSize: 14
-            }
-
-            TextField {
-                id: exportPathInput
-                Layout.fillWidth: true
-                placeholderText: "例如: /home/user/documents/mykey.key"
-                selectByMouse: true
-            }
-        }
-    }
-
-    // 自定义文件路径输入对话框（用于导入）
-    Dialog {
-        id: importPathDialog
-        title: "输入导入路径"
-        standardButtons: Dialog.Ok | Dialog.Cancel
-        modal: true
-        width: 500
-        height: 200
-
-        onAccepted: {
-            if (importPathInput.text.length > 0) {
-                importFilePath.text = importPathInput.text
-            }
-            importPathInput.text = ""
-        }
-
-        contentItem: ColumnLayout {
-            spacing: 20
-            anchors.fill: parent
-            anchors.margins: 20
-
-            Text {
-                text: "请输入密钥文件的完整路径:"
-                font.pixelSize: 14
-            }
-
-            TextField {
-                id: importPathInput
-                Layout.fillWidth: true
-                placeholderText: "例如: /home/user/documents/mykey.key"
-                selectByMouse: true
             }
         }
     }

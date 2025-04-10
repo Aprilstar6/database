@@ -1,6 +1,7 @@
 import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
+import Qt.labs.platform 1.1
 import com.directory 1.0
 
 Item {
@@ -18,10 +19,23 @@ Item {
     // 文件选择属性
     property int selectIndex: -1
     property string selectName: ""
-    property ListModel fileModel: ListModel {}
+    property ListModel fileModel: ListModel {
+        // 添加额外属性用于存储源目录
+        ListElement { 
+            name: "" 
+            time: 0
+            sourceDir: ""
+        }
+    }
 
     // 加密设置
     property int encryptionMethod: 0 // 0 = 传统 XOR, 1 = AES 密码, 2 = RSA, 3 = 混合 AES+RSA
+    onEncryptionMethodChanged: {
+        // 当加密方式改变时，刷新密钥列表
+        if (keySelector && typeof keySelector.refreshKeyList === 'function') {
+            keySelector.refreshKeyList();
+        }
+    }
 
     // 颜色主题
     property color primaryColor: "#3498DB"        // 主色调（蓝色）
@@ -39,6 +53,9 @@ Item {
     Component.onCompleted: {
         console.log("EnDeCode界面已加载")
 
+        // 清空初始空元素
+        fileModel.clear()
+        
         // 显示明显的状态指示
         initText.visible = true
 
@@ -124,7 +141,7 @@ Item {
 
         function onFileNameSignal(name, time) {
             console.log("接收到文件信号:", name)
-            fileModel.append({"name": name, "time": time})
+            fileModel.append({"name": name, "time": time, "sourceDir": ""})
         }
 
         function onOperationComplete(success, message) {
@@ -144,21 +161,85 @@ Item {
     // 我们将使用系统命令或其他方式选择文件
     function openFileSelector() {
         console.log("调用文件选择功能");
-        // 在这种情况下，我们可以通过显示一个输入框让用户输入文件路径
-        fileInputDialog.open();
+        // 使用FileDialog代替输入框
+        fileDialog.open();
     }
 
-    // 简单的文件输入对话框
-    Dialog {
+    // 添加FileDialog组件
+    FileDialog {
+        id: fileDialog
+        title: "选择文件"
+        folder: "file:///home"
+        nameFilters: ["所有文件 (*.*)"]
+        
+        onAccepted: {
+            var fileName = fileDialog.file.toString();
+            console.log("原始文件路径: " + fileName);
+            
+            // 处理文件URL格式，去掉前缀，但保留前导斜杠
+            if (fileName.startsWith("file:///")) {
+                fileName = fileName.replace("file:///", "/");
+            } else {
+                fileName = fileName.replace(/^(file:\/{2,3})|(qrc:\/{2})|(http:\/{2})/,"");
+            }
+            
+            console.log("处理后文件路径: " + fileName);
+            
+            var lastSlash = Math.max(fileName.lastIndexOf('/'), fileName.lastIndexOf('\\'));
+            var onlyFileName = fileName.substring(lastSlash + 1);
+            var sourceDir = fileName.substring(0, lastSlash + 1);
+            var destPath = root.filePath + onlyFileName;
+
+            console.log("源路径: " + fileName);
+            console.log("源文件目录: " + sourceDir);
+            console.log("目标路径: " + destPath);
+
+            // 将源文件目录保存到文件模型中，以便后续使用
+            directoryHandler.copyFile(fileName, destPath);
+            
+            // 导入后自动选择该文件
+            refreshFileList();
+            // 等待文件列表刷新后再选择
+            Qt.callLater(function() {
+                for(var i=0; i < fileModel.count; i++) {
+                    if(fileModel.get(i).name === onlyFileName) {
+                        selectIndex = i;
+                        selectName = onlyFileName;
+                        // 保存源文件目录路径
+                        fileModel.setProperty(i, "sourceDir", sourceDir);
+                        console.log("已保存源目录: " + sourceDir + " 到文件: " + onlyFileName);
+                        break;
+                    }
+                }
+            });
+            
+            showStatus("已导入文件: " + onlyFileName);
+        }
+        
+        onRejected: {
+            console.log("文件选择已取消");
+        }
+    }
+
+    // 保留原来的对话框作为备用
+    Window {
         id: fileInputDialog
         title: "输入文件路径"
-        standardButtons: Dialog.Ok | Dialog.Cancel
-        modal: true
         width: 500
         height: 200
-        anchors.centerIn: parent
+        flags: Qt.Dialog | Qt.WindowCloseButtonHint
+        modality: Qt.ApplicationModal
+        visible: false
 
-        onAccepted: {
+        function open() {
+            visible = true;
+        }
+
+        function close() {
+            visible = false;
+        }
+
+        function accept() {
             if (filePathInput.text.length > 0) {
                 var fileName = filePathInput.text;
                 var lastSlash = Math.max(fileName.lastIndexOf('/'), fileName.lastIndexOf('\\'));
@@ -170,12 +251,13 @@ Item {
                 refreshFileList();
             }
             filePathInput.text = "";
+            close();
         }
 
-        contentItem: ColumnLayout {
-            spacing: 20
+        ColumnLayout {
             anchors.fill: parent
             anchors.margins: 20
+            spacing: 20
 
             Text {
                 text: "请输入文件的完整路径:"
@@ -187,6 +269,22 @@ Item {
                 Layout.fillWidth: true
                 placeholderText: "例如: /home/user/documents/file.txt"
                 selectByMouse: true
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 10
+                Layout.alignment: Qt.AlignRight
+
+                Button {
+                    text: "取消"
+                    onClicked: fileInputDialog.close()
+                }
+
+                Button {
+                    text: "确定"
+                    onClicked: fileInputDialog.accept()
+                }
             }
         }
     }
@@ -522,7 +620,7 @@ Item {
 
                     // 密码/密钥输入
                     GroupBox {
-                        title: encryptionMethod <= 1 ? "密码设置" : "密钥设置"
+                        title: "密钥设置"
                         Layout.fillWidth: true
                         padding: 10
 
@@ -546,36 +644,8 @@ Item {
                             rowSpacing: 15
                             columnSpacing: 15
 
-                            // 密码字段 (XOR 和 AES)
+                            // AES和RSA加密都可以使用预生成的密钥
                             Text {
-                                visible: encryptionMethod <= 1
-                                text: "加密密码："
-                                font.pixelSize: 14
-                                color: darkTextColor
-                                Layout.alignment: Qt.AlignRight
-                            }
-
-                            TextField {
-                                id: passwordField
-                                visible: encryptionMethod <= 1
-                                Layout.fillWidth: true
-                                placeholderText: "请输入密码"
-                                echoMode: TextInput.Password
-                                selectByMouse: true
-                                font.pixelSize: 14
-                                height: 36
-
-                                background: Rectangle {
-                                    radius: 5
-                                    color: cardColor
-                                    border.color: passwordField.activeFocus ? primaryColor : borderColor
-                                    border.width: passwordField.activeFocus ? 2 : 1
-                                }
-                            }
-
-                            // RSA 密钥选择
-                            Text {
-                                visible: encryptionMethod >= 2
                                 text: "选择密钥："
                                 font.pixelSize: 14
                                 color: darkTextColor
@@ -584,7 +654,6 @@ Item {
 
                             ComboBox {
                                 id: keySelector
-                                visible: encryptionMethod >= 2
                                 Layout.fillWidth: true
                                 model: []
                                 textRole: "name"
@@ -607,13 +676,22 @@ Item {
 
                                     for (var i = 0; i < keyList.length; i++) {
                                         var keyName = keyList[i]
-                                        if (keyName.endsWith(".key") || keyName.endsWith(".aeskey")) {
-                                            if (keyName.endsWith(".key")) {
-                                                keyName = keyName.substring(0, keyName.length - 4)
-                                            } else if (keyName.endsWith(".aeskey")) {
-                                                keyName = keyName.substring(0, keyName.length - 7)
-                                            }
-                                            keys.push({"name": keyName})
+                                        var isRSAKey = keyName.endsWith(".key")
+                                        var isAESKey = keyName.endsWith(".aeskey")
+                                        var displayName = ""
+                                        
+                                        // 根据加密方式筛选密钥类型
+                                        if (encryptionMethod === 0) {
+                                            // XOR不使用密钥管理器的密钥，使用直接输入的密码
+                                            continue
+                                        } else if (encryptionMethod === 1 && isAESKey) {
+                                            // AES加密模式 - 只显示AES密钥
+                                            displayName = keyName.substring(0, keyName.length - 7)
+                                            keys.push({"name": displayName, "fullName": keyName, "type": "AES"})
+                                        } else if ((encryptionMethod === 2 || encryptionMethod === 3) && isRSAKey) {
+                                            // RSA或混合加密模式 - 只显示RSA密钥
+                                            displayName = keyName.substring(0, keyName.length - 4)
+                                            keys.push({"name": displayName, "fullName": keyName, "type": "RSA"})
                                         }
                                     }
 
@@ -621,7 +699,61 @@ Item {
                                 }
                             }
 
-                            // RSA 私钥密码
+                            // XOR加密的密码输入
+                            Text {
+                                visible: encryptionMethod === 0
+                                text: "加密密码："
+                                font.pixelSize: 14
+                                color: darkTextColor
+                                Layout.alignment: Qt.AlignRight
+                            }
+
+                            TextField {
+                                id: passwordField
+                                visible: encryptionMethod === 0
+                                Layout.fillWidth: true
+                                placeholderText: "请输入密码"
+                                echoMode: TextInput.Password
+                                selectByMouse: true
+                                font.pixelSize: 14
+                                height: 36
+
+                                background: Rectangle {
+                                    radius: 5
+                                    color: cardColor
+                                    border.color: passwordField.activeFocus ? primaryColor : borderColor
+                                    border.width: passwordField.activeFocus ? 2 : 1
+                                }
+                            }
+
+                            // AES手动输入密码选项
+                            Text {
+                                visible: encryptionMethod === 1
+                                text: "或输入密码："
+                                font.pixelSize: 14
+                                color: darkTextColor
+                                Layout.alignment: Qt.AlignRight
+                            }
+
+                            TextField {
+                                id: aesPasswordField
+                                visible: encryptionMethod === 1
+                                Layout.fillWidth: true
+                                placeholderText: "可直接输入密码(不使用密钥)"
+                                echoMode: TextInput.Password
+                                selectByMouse: true
+                                font.pixelSize: 14
+                                height: 36
+
+                                background: Rectangle {
+                                    radius: 5
+                                    color: cardColor
+                                    border.color: aesPasswordField.activeFocus ? primaryColor : borderColor
+                                    border.width: aesPasswordField.activeFocus ? 2 : 1
+                                }
+                            }
+
+                            // RSA/混合加密的私钥密码
                             Text {
                                 visible: encryptionMethod >= 2
                                 text: "私钥密码："
@@ -717,19 +849,54 @@ Item {
 
                                 var inputPath = root.filePath + selectName
                                 var outputPath = ""
-
-                                if (outputFilename.text.length > 0) {
-                                    outputPath = root.filePath + outputFilename.text
-                                } else {
-                                    var extension = ""
-                                    switch (encryptionMethod) {
-                                        case 0: extension = ".xor"; break
-                                        case 1: extension = ".aes"; break
-                                        case 2: extension = ".rsa"; break
-                                        case 3: extension = ".enc"; break
-                                    }
-                                    outputPath = root.filePath + selectName + extension
+                                var sourceDir = ""
+                                
+                                // 获取源文件的真实目录
+                                try {
+                                    sourceDir = fileModel.get(selectIndex).sourceDir
+                                    console.log("获取到源文件目录:", sourceDir)
+                                } catch(e) {
+                                    console.log("无法获取源目录，使用默认目录:", e)
                                 }
+                                
+                                // 如果有源目录信息，则使用源目录作为输出目录
+                                if (sourceDir && sourceDir.length > 0) {
+                                    inputPath = root.filePath + selectName  // 输入仍然从当前目录
+                                    
+                                    if (outputFilename.text.length > 0) {
+                                        // 自定义输出文件名
+                                        outputPath = sourceDir + outputFilename.text
+                                    } else {
+                                        // 自动生成输出文件名
+                                        var extension = ""
+                                        switch (encryptionMethod) {
+                                            case 0: extension = ".xor"; break
+                                            case 1: extension = ".aes"; break
+                                            case 2: extension = ".rsa"; break
+                                            case 3: extension = ".enc"; break
+                                        }
+                                        outputPath = sourceDir + selectName + extension
+                                    }
+                                } else {
+                                    // 没有源目录信息，使用当前目录
+                                    inputPath = root.filePath + selectName
+                                    
+                                    if (outputFilename.text.length > 0) {
+                                        outputPath = root.filePath + outputFilename.text
+                                    } else {
+                                        var extension = ""
+                                        switch (encryptionMethod) {
+                                            case 0: extension = ".xor"; break
+                                            case 1: extension = ".aes"; break
+                                            case 2: extension = ".rsa"; break
+                                            case 3: extension = ".enc"; break
+                                        }
+                                        outputPath = root.filePath + selectName + extension
+                                    }
+                                }
+                                
+                                console.log("输入文件路径: " + inputPath)
+                                console.log("输出文件路径: " + outputPath)
 
                                 // 加密方法
                                 switch (encryptionMethod) {
@@ -742,11 +909,17 @@ Item {
                                         break
 
                                     case 1:  // AES
-                                        if (passwordField.text.length === 0) {
-                                            showStatus("请输入密码")
+                                        if (keySelector.currentIndex >= 0) {
+                                            // 使用选择的AES密钥
+                                            var selectedKeyName = keySelector.model[keySelector.currentIndex].name
+                                            directoryHandler.encryptFileAES(inputPath, outputPath, selectedKeyName)
+                                        } else if (aesPasswordField.text.length > 0) {
+                                            // 使用手动输入的密码
+                                            directoryHandler.encryptFileAES(inputPath, outputPath, aesPasswordField.text)
+                                        } else {
+                                            showStatus("请选择密钥或输入密码")
                                             return
                                         }
-                                        directoryHandler.encryptFileAES(inputPath, outputPath, passwordField.text)
                                         break
 
                                     case 2:  // RSA
@@ -803,22 +976,60 @@ Item {
 
                                 var inputPath = root.filePath + selectName
                                 var outputPath = ""
-
-                                if (outputFilename.text.length > 0) {
-                                    outputPath = root.filePath + outputFilename.text
-                                } else {
-                                    var baseName = selectName
-                                    if (baseName.indexOf(".xor") > 0) {
-                                        baseName = baseName.substring(0, baseName.indexOf(".xor"))
-                                    } else if (baseName.indexOf(".aes") > 0) {
-                                        baseName = baseName.substring(0, baseName.indexOf(".aes"))
-                                    } else if (baseName.indexOf(".rsa") > 0) {
-                                        baseName = baseName.substring(0, baseName.indexOf(".rsa"))
-                                    } else if (baseName.indexOf(".enc") > 0) {
-                                        baseName = baseName.substring(0, baseName.indexOf(".enc"))
-                                    }
-                                    outputPath = root.filePath + "decrypted_" + baseName
+                                var sourceDir = ""
+                                
+                                // 获取源文件的真实目录
+                                try {
+                                    sourceDir = fileModel.get(selectIndex).sourceDir
+                                    console.log("获取到源文件目录:", sourceDir)
+                                } catch(e) {
+                                    console.log("无法获取源目录，使用默认目录:", e)
                                 }
+                                
+                                // 如果有源目录信息，则使用源目录作为输出目录
+                                if (sourceDir && sourceDir.length > 0) {
+                                    inputPath = root.filePath + selectName  // 输入仍然从当前目录
+                                    
+                                    if (outputFilename.text.length > 0) {
+                                        // 自定义输出文件名
+                                        outputPath = sourceDir + outputFilename.text
+                                    } else {
+                                        // 从文件名中去除加密扩展名
+                                        var baseName = selectName
+                                        if (baseName.indexOf(".xor") > 0) {
+                                            baseName = baseName.substring(0, baseName.indexOf(".xor"))
+                                        } else if (baseName.indexOf(".aes") > 0) {
+                                            baseName = baseName.substring(0, baseName.indexOf(".aes"))
+                                        } else if (baseName.indexOf(".rsa") > 0) {
+                                            baseName = baseName.substring(0, baseName.indexOf(".rsa"))
+                                        } else if (baseName.indexOf(".enc") > 0) {
+                                            baseName = baseName.substring(0, baseName.indexOf(".enc"))
+                                        }
+                                        outputPath = sourceDir + "decrypted_" + baseName
+                                    }
+                                } else {
+                                    // 没有源目录信息，使用当前目录
+                                    inputPath = root.filePath + selectName
+                                    
+                                    if (outputFilename.text.length > 0) {
+                                        outputPath = root.filePath + outputFilename.text
+                                    } else {
+                                        var baseName = selectName
+                                        if (baseName.indexOf(".xor") > 0) {
+                                            baseName = baseName.substring(0, baseName.indexOf(".xor"))
+                                        } else if (baseName.indexOf(".aes") > 0) {
+                                            baseName = baseName.substring(0, baseName.indexOf(".aes"))
+                                        } else if (baseName.indexOf(".rsa") > 0) {
+                                            baseName = baseName.substring(0, baseName.indexOf(".rsa"))
+                                        } else if (baseName.indexOf(".enc") > 0) {
+                                            baseName = baseName.substring(0, baseName.indexOf(".enc"))
+                                        }
+                                        outputPath = root.filePath + "decrypted_" + baseName
+                                    }
+                                }
+                                
+                                console.log("输入文件路径: " + inputPath)
+                                console.log("输出文件路径: " + outputPath)
 
                                 // 解密方法
                                 switch (encryptionMethod) {
@@ -831,11 +1042,17 @@ Item {
                                         break
 
                                     case 1:  // AES
-                                        if (passwordField.text.length === 0) {
-                                            showStatus("请输入密码")
+                                        if (keySelector.currentIndex >= 0) {
+                                            // 使用选择的AES密钥
+                                            var selectedKeyName = keySelector.model[keySelector.currentIndex].name
+                                            directoryHandler.decryptFileAES(inputPath, outputPath, selectedKeyName)
+                                        } else if (aesPasswordField.text.length > 0) {
+                                            // 使用手动输入的密码
+                                            directoryHandler.decryptFileAES(inputPath, outputPath, aesPasswordField.text)
+                                        } else {
+                                            showStatus("请选择密钥或输入密码")
                                             return
                                         }
-                                        directoryHandler.decryptFileAES(inputPath, outputPath, passwordField.text)
                                         break
 
                                     case 2:  // RSA
@@ -1042,6 +1259,40 @@ Item {
                                         border.width: 1
                                         border.color: selectIndex === index ? primaryColor : borderColor
 
+                                        // 删除按钮
+                                        Rectangle {
+                                            id: deleteButton
+                                            width: 24
+                                            height: 24
+                                            radius: 12
+                                            color: "#E74C3C"
+                                            anchors.right: parent.right
+                                            anchors.top: parent.top
+                                            anchors.rightMargin: 5
+                                            anchors.topMargin: 5
+                                            opacity: 0.8
+                                            visible: false
+                                            z: 2
+
+                                            Text {
+                                                anchors.centerIn: parent
+                                                text: "×"
+                                                font.pixelSize: 18
+                                                font.bold: true
+                                                color: "white"
+                                            }
+
+                                            MouseArea {
+                                                anchors.fill: parent
+                                                onClicked: {
+                                                    // 确认删除
+                                                    deleteConfirmDialog.fileName = model.name
+                                                    deleteConfirmDialog.fileIndex = index
+                                                    deleteConfirmDialog.open()
+                                                }
+                                            }
+                                        }
+
                                         ColumnLayout {
                                             anchors.fill: parent
                                             anchors.margins: 10
@@ -1096,11 +1347,13 @@ Item {
                                                 if (selectIndex !== index) {
                                                     fileCard.color = hoverColor
                                                 }
+                                                deleteButton.visible = true
                                             }
                                             onExited: {
                                                 if (selectIndex !== index) {
                                                     fileCard.color = cardColor
                                                 }
+                                                deleteButton.visible = false
                                             }
                                         }
                                     }
@@ -1167,6 +1420,105 @@ Item {
             id: statusTimer
             interval: 3000
             onTriggered: statusBar.visible = false
+        }
+    }
+
+    // 辅助函数：返回常用色彩
+    function getDefaultColor() {
+        return "#34495E"; // 深蓝灰色
+    }
+
+    // 文件删除确认对话框
+    Window {
+        id: deleteConfirmDialog
+        width: 400
+        height: 200
+        flags: Qt.Dialog | Qt.WindowCloseButtonHint
+        modality: Qt.ApplicationModal
+        visible: false
+        title: "确认删除"
+        x: root && root.width ? (root.width - width) / 2 : 0
+        y: root && root.height ? (root.height - height) / 2 : 0
+
+        property string fileName: ""
+        property int fileIndex: -1
+
+        function open() {
+            visible = true;
+        }
+
+        function close() {
+            visible = false;
+        }
+
+        ColumnLayout {
+            anchors.fill: parent
+            anchors.margins: 20
+            spacing: 20
+
+            Text {
+                Layout.fillWidth: true
+                text: "确定要删除文件 \"" + deleteConfirmDialog.fileName + "\" 吗？此操作不可撤销。"
+                wrapMode: Text.WordWrap
+                font.pixelSize: 16
+                color: "#394149"
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 10
+                Layout.alignment: Qt.AlignRight | Qt.AlignBottom
+
+                Button {
+                    text: "取消"
+                    implicitWidth: 100
+                    implicitHeight: 40
+                    font.pixelSize: 14
+
+                    onClicked: {
+                        deleteConfirmDialog.close()
+                    }
+                }
+
+                Button {
+                    text: "删除"
+                    implicitWidth: 100
+                    implicitHeight: 40
+                    font.pixelSize: 14
+
+                    background: Rectangle {
+                        radius: 5
+                        color: "#E74C3C"
+                    }
+
+                    contentItem: Text {
+                        text: parent.text
+                        font: parent.font
+                        color: "white"
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                    }
+
+                    onClicked: {
+                        // 执行删除
+                        if (deleteConfirmDialog.fileIndex >= 0 && deleteConfirmDialog.fileIndex < fileModel.count) {
+                            var filePath = root.filePath + deleteConfirmDialog.fileName;
+                            directoryHandler.deleteFile(filePath);
+                            fileModel.remove(deleteConfirmDialog.fileIndex);
+                            
+                            // 如果删除的是当前选中的文件，重置选择
+                            if (deleteConfirmDialog.fileIndex === selectIndex) {
+                                selectIndex = -1;
+                                selectName = "";
+                            } else if (deleteConfirmDialog.fileIndex < selectIndex) {
+                                // 如果删除的文件在当前选中文件之前，调整选择索引
+                                selectIndex--;
+                            }
+                        }
+                        deleteConfirmDialog.close();
+                    }
+                }
+            }
         }
     }
 }

@@ -2,6 +2,7 @@
 #include <QDir>
 #include <QFileInfo>
 #include <QDateTime>
+#include <QDebug>
 
 // Legacy XOR encryption functions (kept for backward compatibility)
 extern "C"
@@ -168,6 +169,10 @@ bool DirectoryHandler::copyFile(const QString &sourceFile, const QString &destFi
 {
     // 清理路径，处理文件URL（如果有必要）
     QString cleanedSource = sourceFile;
+    
+    // 输出调试信息
+    qDebug() << "复制文件 - 原始源路径:" << sourceFile;
+    qDebug() << "复制文件 - 目标路径:" << destFile;
 
     // 判断系统平台，适当处理文件路径
 #ifdef Q_OS_WIN
@@ -175,13 +180,28 @@ bool DirectoryHandler::copyFile(const QString &sourceFile, const QString &destFi
     if (cleanedSource.startsWith("/")) {
         cleanedSource = cleanedSource.mid(1);
     }
+#else
+    // Linux平台处理
+    // 确保路径开头有斜杠
+    if (!cleanedSource.startsWith("/") && !cleanedSource.startsWith("./") && !cleanedSource.startsWith("../")) {
+        cleanedSource = "/" + cleanedSource;
+    }
+    
+    // 处理可能的双斜杠问题
+    while (cleanedSource.contains("//")) {
+        cleanedSource = cleanedSource.replace("//", "/");
+    }
 #endif
+
+    // 输出调试信息
+    qDebug() << "复制文件 - 处理后源路径:" << cleanedSource;
 
     QFile source(cleanedSource);
     QFile dest(destFile);
 
     // 确保源文件存在
     if (!source.exists()) {
+        qDebug() << "文件不存在:" << cleanedSource;
         emit operationComplete(false, "源文件不存在: " + cleanedSource);
         return false;
     }
@@ -194,12 +214,80 @@ bool DirectoryHandler::copyFile(const QString &sourceFile, const QString &destFi
         }
     }
 
-    // 复制文件
-    if (!source.copy(destFile)) {
-        emit operationComplete(false, "文件复制失败: " + source.errorString());
+    // 打开源文件用于读取
+    if (!source.open(QIODevice::ReadOnly)) {
+        emit operationComplete(false, "无法打开源文件: " + source.errorString());
+        return false;
+    }
+
+    // 打开目标文件用于写入
+    if (!dest.open(QIODevice::WriteOnly)) {
+        source.close();
+        emit operationComplete(false, "无法打开目标文件: " + dest.errorString());
+        return false;
+    }
+
+    // 复制文件内容
+    QByteArray data = source.readAll();
+    qint64 bytesWritten = dest.write(data);
+    
+    // 关闭文件
+    source.close();
+    dest.close();
+
+    if (bytesWritten != data.size()) {
+        emit operationComplete(false, "文件写入不完整: " + dest.errorString());
         return false;
     }
 
     emit operationComplete(true, "文件复制成功");
+    return true;
+}
+
+bool DirectoryHandler::deleteFile(const QString &filePath)
+{
+    // 清理路径，处理文件URL（如果有必要）
+    QString cleanedPath = filePath;
+    
+    // 输出调试信息
+    qDebug() << "删除文件 - 路径:" << filePath;
+
+    // 判断系统平台，适当处理文件路径
+#ifdef Q_OS_WIN
+    // Windows需要去掉最前面的斜杠
+    if (cleanedPath.startsWith("/")) {
+        cleanedPath = cleanedPath.mid(1);
+    }
+#else
+    // Linux平台处理
+    // 确保路径开头有斜杠
+    if (!cleanedPath.startsWith("/") && !cleanedPath.startsWith("./") && !cleanedPath.startsWith("../")) {
+        cleanedPath = "/" + cleanedPath;
+    }
+    
+    // 处理可能的双斜杠问题
+    while (cleanedPath.contains("//")) {
+        cleanedPath = cleanedPath.replace("//", "/");
+    }
+#endif
+
+    // 输出调试信息
+    qDebug() << "删除文件 - 处理后路径:" << cleanedPath;
+
+    QFile file(cleanedPath);
+    
+    // 确保文件存在
+    if (!file.exists()) {
+        emit operationComplete(false, "文件不存在: " + cleanedPath);
+        return false;
+    }
+    
+    // 尝试删除文件
+    if (!file.remove()) {
+        emit operationComplete(false, "删除文件失败: " + file.errorString());
+        return false;
+    }
+    
+    emit operationComplete(true, "文件删除成功");
     return true;
 }

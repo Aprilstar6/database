@@ -3,7 +3,6 @@ import QtQuick.Window 2.15
 import QtQuick.Controls 2.15
 import QtQuick.LocalStorage 2.0
 import "database.js" as DB
-
 Window {
     id: root
     width: 1280

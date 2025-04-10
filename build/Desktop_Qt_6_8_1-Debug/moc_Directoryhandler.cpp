@@ -53,8 +53,9 @@ static constexpr auto qt_meta_stringdata_ZN16DirectoryHandlerE = QtMocHelpers::s
     "copyFile",
     "sourceFile",
     "destFile",
-    "enCodeFile",
+    "deleteFile",
     "filePath",
+    "enCodeFile",
     "outputPath",
     "key",
     "deCodeFile",
@@ -87,7 +88,7 @@ Q_CONSTINIT static const uint qt_meta_data_ZN16DirectoryHandlerE[] = {
       12,       // revision
        0,       // classname
        0,    0, // classinfo
-      19,   14, // methods
+      20,   14, // methods
        0,    0, // properties
        0,    0, // enums/sets
        0,    0, // constructors
@@ -95,27 +96,28 @@ Q_CONSTINIT static const uint qt_meta_data_ZN16DirectoryHandlerE[] = {
        3,       // signalCount
 
  // signals: name, argc, parameters, tag, flags, initial metatype offsets
-       1,    2,  128,    2, 0x06,    1 /* Public */,
-       5,    2,  133,    2, 0x06,    4 /* Public */,
-       8,    1,  138,    2, 0x06,    7 /* Public */,
+       1,    2,  134,    2, 0x06,    1 /* Public */,
+       5,    2,  139,    2, 0x06,    4 /* Public */,
+       8,    1,  144,    2, 0x06,    7 /* Public */,
 
  // methods: name, argc, parameters, tag, flags, initial metatype offsets
-      10,    2,  141,    2, 0x02,    9 /* Public */,
-      13,    2,  146,    2, 0x02,   12 /* Public */,
-      16,    3,  151,    2, 0x02,   15 /* Public */,
-      20,    3,  158,    2, 0x02,   19 /* Public */,
-      21,    3,  165,    2, 0x02,   23 /* Public */,
-      25,    3,  172,    2, 0x02,   27 /* Public */,
-      26,    3,  179,    2, 0x02,   31 /* Public */,
-      28,    4,  186,    2, 0x02,   35 /* Public */,
-      29,    3,  195,    2, 0x02,   40 /* Public */,
-      30,    4,  202,    2, 0x02,   44 /* Public */,
-      31,    2,  211,    2, 0x02,   49 /* Public */,
-      32,    2,  216,    2, 0x02,   52 /* Public */,
-      33,    0,  221,    2, 0x02,   55 /* Public */,
-      34,    1,  222,    2, 0x02,   56 /* Public */,
-      35,    3,  225,    2, 0x02,   58 /* Public */,
-      37,    2,  232,    2, 0x02,   62 /* Public */,
+      10,    2,  147,    2, 0x02,    9 /* Public */,
+      13,    2,  152,    2, 0x02,   12 /* Public */,
+      16,    1,  157,    2, 0x02,   15 /* Public */,
+      18,    3,  160,    2, 0x02,   17 /* Public */,
+      21,    3,  167,    2, 0x02,   21 /* Public */,
+      22,    3,  174,    2, 0x02,   25 /* Public */,
+      26,    3,  181,    2, 0x02,   29 /* Public */,
+      27,    3,  188,    2, 0x02,   33 /* Public */,
+      29,    4,  195,    2, 0x02,   37 /* Public */,
+      30,    3,  204,    2, 0x02,   42 /* Public */,
+      31,    4,  211,    2, 0x02,   46 /* Public */,
+      32,    2,  220,    2, 0x02,   51 /* Public */,
+      33,    2,  225,    2, 0x02,   54 /* Public */,
+      34,    0,  230,    2, 0x02,   57 /* Public */,
+      35,    1,  231,    2, 0x02,   58 /* Public */,
+      36,    3,  234,    2, 0x02,   60 /* Public */,
+      38,    2,  241,    2, 0x02,   64 /* Public */,
 
  // signals: parameters
     QMetaType::Void, QMetaType::QString, QMetaType::Int,    3,    4,
@@ -125,20 +127,21 @@ Q_CONSTINIT static const uint qt_meta_data_ZN16DirectoryHandlerE[] = {
  // methods: parameters
     QMetaType::Void, QMetaType::QString, QMetaType::QStringList,   11,   12,
     QMetaType::Bool, QMetaType::QString, QMetaType::QString,   14,   15,
-    QMetaType::Void, QMetaType::QString, QMetaType::QString, QMetaType::QString,   17,   18,   19,
-    QMetaType::Void, QMetaType::QString, QMetaType::QString, QMetaType::QString,   17,   18,   19,
-    QMetaType::Bool, QMetaType::QString, QMetaType::QString, QMetaType::QString,   22,   23,   24,
-    QMetaType::Bool, QMetaType::QString, QMetaType::QString, QMetaType::QString,   22,   23,   24,
-    QMetaType::Bool, QMetaType::QString, QMetaType::QString, QMetaType::QString,   22,   23,   27,
-    QMetaType::Bool, QMetaType::QString, QMetaType::QString, QMetaType::QString, QMetaType::QString,   22,   23,   27,   24,
-    QMetaType::Bool, QMetaType::QString, QMetaType::QString, QMetaType::QString,   22,   23,   27,
-    QMetaType::Bool, QMetaType::QString, QMetaType::QString, QMetaType::QString, QMetaType::QString,   22,   23,   27,   24,
-    QMetaType::Bool, QMetaType::QString, QMetaType::QString,    3,   24,
-    QMetaType::Bool, QMetaType::QString, QMetaType::QString,    3,   24,
+    QMetaType::Bool, QMetaType::QString,   17,
+    QMetaType::Void, QMetaType::QString, QMetaType::QString, QMetaType::QString,   17,   19,   20,
+    QMetaType::Void, QMetaType::QString, QMetaType::QString, QMetaType::QString,   17,   19,   20,
+    QMetaType::Bool, QMetaType::QString, QMetaType::QString, QMetaType::QString,   23,   24,   25,
+    QMetaType::Bool, QMetaType::QString, QMetaType::QString, QMetaType::QString,   23,   24,   25,
+    QMetaType::Bool, QMetaType::QString, QMetaType::QString, QMetaType::QString,   23,   24,   28,
+    QMetaType::Bool, QMetaType::QString, QMetaType::QString, QMetaType::QString, QMetaType::QString,   23,   24,   28,   25,
+    QMetaType::Bool, QMetaType::QString, QMetaType::QString, QMetaType::QString,   23,   24,   28,
+    QMetaType::Bool, QMetaType::QString, QMetaType::QString, QMetaType::QString, QMetaType::QString,   23,   24,   28,   25,
+    QMetaType::Bool, QMetaType::QString, QMetaType::QString,    3,   25,
+    QMetaType::Bool, QMetaType::QString, QMetaType::QString,    3,   25,
     QMetaType::QStringList,
-    QMetaType::Bool, QMetaType::QString,   27,
-    QMetaType::Bool, QMetaType::QString, QMetaType::QString, QMetaType::QString,   27,   36,   24,
-    QMetaType::Bool, QMetaType::QString, QMetaType::QString,   38,   24,
+    QMetaType::Bool, QMetaType::QString,   28,
+    QMetaType::Bool, QMetaType::QString, QMetaType::QString, QMetaType::QString,   28,   37,   25,
+    QMetaType::Bool, QMetaType::QString, QMetaType::QString,   39,   25,
 
        0        // eod
 };
@@ -170,6 +173,9 @@ Q_CONSTINIT const QMetaObject DirectoryHandler::staticMetaObject = { {
         // method 'copyFile'
         QtPrivate::TypeAndForceComplete<bool, std::false_type>,
         QtPrivate::TypeAndForceComplete<const QString &, std::false_type>,
+        QtPrivate::TypeAndForceComplete<const QString &, std::false_type>,
+        // method 'deleteFile'
+        QtPrivate::TypeAndForceComplete<bool, std::false_type>,
         QtPrivate::TypeAndForceComplete<const QString &, std::false_type>,
         // method 'enCodeFile'
         QtPrivate::TypeAndForceComplete<void, std::false_type>,
@@ -250,31 +256,33 @@ void DirectoryHandler::qt_static_metacall(QObject *_o, QMetaObject::Call _c, int
         case 3: _t->listFiles((*reinterpret_cast< std::add_pointer_t<QString>>(_a[1])),(*reinterpret_cast< std::add_pointer_t<QStringList>>(_a[2]))); break;
         case 4: { bool _r = _t->copyFile((*reinterpret_cast< std::add_pointer_t<QString>>(_a[1])),(*reinterpret_cast< std::add_pointer_t<QString>>(_a[2])));
             if (_a[0]) *reinterpret_cast< bool*>(_a[0]) = std::move(_r); }  break;
-        case 5: _t->enCodeFile((*reinterpret_cast< std::add_pointer_t<QString>>(_a[1])),(*reinterpret_cast< std::add_pointer_t<QString>>(_a[2])),(*reinterpret_cast< std::add_pointer_t<QString>>(_a[3]))); break;
-        case 6: _t->deCodeFile((*reinterpret_cast< std::add_pointer_t<QString>>(_a[1])),(*reinterpret_cast< std::add_pointer_t<QString>>(_a[2])),(*reinterpret_cast< std::add_pointer_t<QString>>(_a[3]))); break;
-        case 7: { bool _r = _t->encryptFileAES((*reinterpret_cast< std::add_pointer_t<QString>>(_a[1])),(*reinterpret_cast< std::add_pointer_t<QString>>(_a[2])),(*reinterpret_cast< std::add_pointer_t<QString>>(_a[3])));
+        case 5: { bool _r = _t->deleteFile((*reinterpret_cast< std::add_pointer_t<QString>>(_a[1])));
             if (_a[0]) *reinterpret_cast< bool*>(_a[0]) = std::move(_r); }  break;
-        case 8: { bool _r = _t->decryptFileAES((*reinterpret_cast< std::add_pointer_t<QString>>(_a[1])),(*reinterpret_cast< std::add_pointer_t<QString>>(_a[2])),(*reinterpret_cast< std::add_pointer_t<QString>>(_a[3])));
+        case 6: _t->enCodeFile((*reinterpret_cast< std::add_pointer_t<QString>>(_a[1])),(*reinterpret_cast< std::add_pointer_t<QString>>(_a[2])),(*reinterpret_cast< std::add_pointer_t<QString>>(_a[3]))); break;
+        case 7: _t->deCodeFile((*reinterpret_cast< std::add_pointer_t<QString>>(_a[1])),(*reinterpret_cast< std::add_pointer_t<QString>>(_a[2])),(*reinterpret_cast< std::add_pointer_t<QString>>(_a[3]))); break;
+        case 8: { bool _r = _t->encryptFileAES((*reinterpret_cast< std::add_pointer_t<QString>>(_a[1])),(*reinterpret_cast< std::add_pointer_t<QString>>(_a[2])),(*reinterpret_cast< std::add_pointer_t<QString>>(_a[3])));
             if (_a[0]) *reinterpret_cast< bool*>(_a[0]) = std::move(_r); }  break;
-        case 9: { bool _r = _t->encryptFileRSA((*reinterpret_cast< std::add_pointer_t<QString>>(_a[1])),(*reinterpret_cast< std::add_pointer_t<QString>>(_a[2])),(*reinterpret_cast< std::add_pointer_t<QString>>(_a[3])));
+        case 9: { bool _r = _t->decryptFileAES((*reinterpret_cast< std::add_pointer_t<QString>>(_a[1])),(*reinterpret_cast< std::add_pointer_t<QString>>(_a[2])),(*reinterpret_cast< std::add_pointer_t<QString>>(_a[3])));
             if (_a[0]) *reinterpret_cast< bool*>(_a[0]) = std::move(_r); }  break;
-        case 10: { bool _r = _t->decryptFileRSA((*reinterpret_cast< std::add_pointer_t<QString>>(_a[1])),(*reinterpret_cast< std::add_pointer_t<QString>>(_a[2])),(*reinterpret_cast< std::add_pointer_t<QString>>(_a[3])),(*reinterpret_cast< std::add_pointer_t<QString>>(_a[4])));
+        case 10: { bool _r = _t->encryptFileRSA((*reinterpret_cast< std::add_pointer_t<QString>>(_a[1])),(*reinterpret_cast< std::add_pointer_t<QString>>(_a[2])),(*reinterpret_cast< std::add_pointer_t<QString>>(_a[3])));
             if (_a[0]) *reinterpret_cast< bool*>(_a[0]) = std::move(_r); }  break;
-        case 11: { bool _r = _t->encryptFileHybrid((*reinterpret_cast< std::add_pointer_t<QString>>(_a[1])),(*reinterpret_cast< std::add_pointer_t<QString>>(_a[2])),(*reinterpret_cast< std::add_pointer_t<QString>>(_a[3])));
+        case 11: { bool _r = _t->decryptFileRSA((*reinterpret_cast< std::add_pointer_t<QString>>(_a[1])),(*reinterpret_cast< std::add_pointer_t<QString>>(_a[2])),(*reinterpret_cast< std::add_pointer_t<QString>>(_a[3])),(*reinterpret_cast< std::add_pointer_t<QString>>(_a[4])));
             if (_a[0]) *reinterpret_cast< bool*>(_a[0]) = std::move(_r); }  break;
-        case 12: { bool _r = _t->decryptFileHybrid((*reinterpret_cast< std::add_pointer_t<QString>>(_a[1])),(*reinterpret_cast< std::add_pointer_t<QString>>(_a[2])),(*reinterpret_cast< std::add_pointer_t<QString>>(_a[3])),(*reinterpret_cast< std::add_pointer_t<QString>>(_a[4])));
+        case 12: { bool _r = _t->encryptFileHybrid((*reinterpret_cast< std::add_pointer_t<QString>>(_a[1])),(*reinterpret_cast< std::add_pointer_t<QString>>(_a[2])),(*reinterpret_cast< std::add_pointer_t<QString>>(_a[3])));
             if (_a[0]) *reinterpret_cast< bool*>(_a[0]) = std::move(_r); }  break;
-        case 13: { bool _r = _t->generateRSAKeyPair((*reinterpret_cast< std::add_pointer_t<QString>>(_a[1])),(*reinterpret_cast< std::add_pointer_t<QString>>(_a[2])));
+        case 13: { bool _r = _t->decryptFileHybrid((*reinterpret_cast< std::add_pointer_t<QString>>(_a[1])),(*reinterpret_cast< std::add_pointer_t<QString>>(_a[2])),(*reinterpret_cast< std::add_pointer_t<QString>>(_a[3])),(*reinterpret_cast< std::add_pointer_t<QString>>(_a[4])));
             if (_a[0]) *reinterpret_cast< bool*>(_a[0]) = std::move(_r); }  break;
-        case 14: { bool _r = _t->generateAESKey((*reinterpret_cast< std::add_pointer_t<QString>>(_a[1])),(*reinterpret_cast< std::add_pointer_t<QString>>(_a[2])));
+        case 14: { bool _r = _t->generateRSAKeyPair((*reinterpret_cast< std::add_pointer_t<QString>>(_a[1])),(*reinterpret_cast< std::add_pointer_t<QString>>(_a[2])));
             if (_a[0]) *reinterpret_cast< bool*>(_a[0]) = std::move(_r); }  break;
-        case 15: { QStringList _r = _t->getKeyList();
+        case 15: { bool _r = _t->generateAESKey((*reinterpret_cast< std::add_pointer_t<QString>>(_a[1])),(*reinterpret_cast< std::add_pointer_t<QString>>(_a[2])));
+            if (_a[0]) *reinterpret_cast< bool*>(_a[0]) = std::move(_r); }  break;
+        case 16: { QStringList _r = _t->getKeyList();
             if (_a[0]) *reinterpret_cast< QStringList*>(_a[0]) = std::move(_r); }  break;
-        case 16: { bool _r = _t->deleteKey((*reinterpret_cast< std::add_pointer_t<QString>>(_a[1])));
+        case 17: { bool _r = _t->deleteKey((*reinterpret_cast< std::add_pointer_t<QString>>(_a[1])));
             if (_a[0]) *reinterpret_cast< bool*>(_a[0]) = std::move(_r); }  break;
-        case 17: { bool _r = _t->exportKey((*reinterpret_cast< std::add_pointer_t<QString>>(_a[1])),(*reinterpret_cast< std::add_pointer_t<QString>>(_a[2])),(*reinterpret_cast< std::add_pointer_t<QString>>(_a[3])));
+        case 18: { bool _r = _t->exportKey((*reinterpret_cast< std::add_pointer_t<QString>>(_a[1])),(*reinterpret_cast< std::add_pointer_t<QString>>(_a[2])),(*reinterpret_cast< std::add_pointer_t<QString>>(_a[3])));
             if (_a[0]) *reinterpret_cast< bool*>(_a[0]) = std::move(_r); }  break;
-        case 18: { bool _r = _t->importKey((*reinterpret_cast< std::add_pointer_t<QString>>(_a[1])),(*reinterpret_cast< std::add_pointer_t<QString>>(_a[2])));
+        case 19: { bool _r = _t->importKey((*reinterpret_cast< std::add_pointer_t<QString>>(_a[1])),(*reinterpret_cast< std::add_pointer_t<QString>>(_a[2])));
             if (_a[0]) *reinterpret_cast< bool*>(_a[0]) = std::move(_r); }  break;
         default: ;
         }
@@ -324,14 +332,14 @@ int DirectoryHandler::qt_metacall(QMetaObject::Call _c, int _id, void **_a)
     if (_id < 0)
         return _id;
     if (_c == QMetaObject::InvokeMetaMethod) {
-        if (_id < 19)
+        if (_id < 20)
             qt_static_metacall(this, _c, _id, _a);
-        _id -= 19;
+        _id -= 20;
     }
     if (_c == QMetaObject::RegisterMethodArgumentMetaType) {
-        if (_id < 19)
+        if (_id < 20)
             *reinterpret_cast<QMetaType *>(_a[0]) = QMetaType();
-        _id -= 19;
+        _id -= 20;
     }
     return _id;
 }
