@@ -291,3 +291,79 @@ bool DirectoryHandler::deleteFile(const QString &filePath)
     emit operationComplete(true, "文件删除成功");
     return true;
 }
+
+// 在文件末尾添加clearTempFiles实现
+bool DirectoryHandler::clearTempFiles(const QString &directoryPath)
+{
+    qDebug() << "正在清理目录中的所有临时文件:" << directoryPath;
+    
+    // 清理路径
+    QString cleanedPath = directoryPath;
+    
+#ifdef Q_OS_WIN
+    // Windows需要去掉最前面的斜杠
+    if (cleanedPath.startsWith("/")) {
+        cleanedPath = cleanedPath.mid(1);
+    }
+#else
+    // Linux平台处理
+    // 确保路径开头有斜杠
+    if (!cleanedPath.startsWith("/") && !cleanedPath.startsWith("./") && !cleanedPath.startsWith("../")) {
+        cleanedPath = "/" + cleanedPath;
+    }
+    
+    // 处理可能的双斜杠问题
+    while (cleanedPath.contains("//")) {
+        cleanedPath = cleanedPath.replace("//", "/");
+    }
+#endif
+
+    QDir dir(cleanedPath);
+    if (!dir.exists()) {
+        qDebug() << "目录不存在:" << cleanedPath;
+        emit operationComplete(false, "目录不存在: " + cleanedPath);
+        return false;
+    }
+    
+    // 获取目录中的所有文件
+    QStringList fileFilters;
+    fileFilters << "*.txt" << "*.jpg" << "*.png" << "*.pdf" << "*.doc" << "*.docx" 
+                << "*.xls" << "*.xlsx" << "*.aes" << "*.rsa" << "*.enc" << "*.xor";
+                
+    QFileInfoList fileList = dir.entryInfoList(fileFilters, QDir::Files | QDir::NoDotAndDotDot);
+    
+    // 没有找到匹配的文件
+    if (fileList.isEmpty()) {
+        qDebug() << "目录中没有找到需要清除的文件";
+        emit operationComplete(true, "目录已清空 (没有匹配的文件)");
+        return true;
+    }
+    
+    int deleteCount = 0;
+    int errorCount = 0;
+    
+    // 逐个删除文件
+    foreach (QFileInfo fileInfo, fileList) {
+        QString filePath = fileInfo.absoluteFilePath();
+        qDebug() << "尝试删除文件:" << filePath;
+        
+        QFile file(filePath);
+        if (file.remove()) {
+            deleteCount++;
+            qDebug() << "成功删除文件:" << filePath;
+        } else {
+            errorCount++;
+            qDebug() << "删除文件失败:" << filePath << ":" << file.errorString();
+        }
+    }
+    
+    QString message = QString("已删除 %1 个文件").arg(deleteCount);
+    if (errorCount > 0) {
+        message += QString(", %1 个文件删除失败").arg(errorCount);
+    }
+    
+    qDebug() << message;
+    emit operationComplete(errorCount == 0, message);
+    
+    return (errorCount == 0);
+}

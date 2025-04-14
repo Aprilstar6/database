@@ -15,6 +15,7 @@ public:
     Q_INVOKABLE void listFiles(const QString &directoryPath, const QStringList &suffixes);
     Q_INVOKABLE bool copyFile(const QString &sourceFile, const QString &destFile);
     Q_INVOKABLE bool deleteFile(const QString &filePath);
+    Q_INVOKABLE bool clearTempFiles(const QString &directoryPath);
 
     // Legacy Encryption/Decryption (backward compatibility)
     Q_INVOKABLE void enCodeFile(const QString &filePath, const QString &outputPath, const QString &key);

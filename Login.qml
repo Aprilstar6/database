@@ -248,15 +248,17 @@ Item {
                         if (root.loginAccount === accountText.text && root.loginPasswd === passwordText.text) {
                             console.log("登录成功，准备显示主界面")
 
-                            // 直接切换到主界面，不显示状态提示
+                            // 显示登录成功消息
+                            root.showStatus("登录成功，正在清理文件列表...");
+                            
                             // 延迟一点时间让UI线程有机会更新
                             var timer = Qt.createQmlObject("import QtQuick 2.15; Timer {}", login);
-                            timer.interval = 50;
+                            timer.interval = 600; // 稍微延长时间，让状态消息显示完整
                             timer.repeat = false;
                             timer.triggered.connect(function() {
-                                // 直接调用showEnDeCode而不是显示状态提示
+                                // 调用showEnDeCode切换到主界面
+                                console.log("登录成功，调用showEnDeCode进入主界面并清除文件");
                                 root.showEnDeCode();
-                                console.log("切换到主界面的Timer已触发");
                             });
                             timer.start();
                             console.log("登录成功定时器已启动");

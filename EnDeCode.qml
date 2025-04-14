@@ -9,6 +9,132 @@ Item {
     anchors.fill: parent
     visible: true // 确保可见性
 
+    // 公开给外部的接口
+    signal filesCleared() // 文件清除完成后的信号
+    
+    // 公开的清除文件方法，允许外部组件调用
+    function clearFiles() {
+        console.log("EnDeCode: 外部调用clearFiles()方法清除文件列表")
+        
+        // 清空文件模型 - 这是最关键的一步
+        if (fileModel) {
+            fileModel.clear()
+            console.log("已清空文件模型")
+        }
+        
+        // 重置选择状态
+        selectIndex = -1
+        selectName = ""
+        
+        // 清空批量选择状态
+        _selectedFilesObj = ({})
+        selectedFiles = []
+        selectedCount = 0
+        batchMode = false
+        
+        // 清除实际文件
+        var success = clearActualFiles()
+        
+        // 发送信号通知外部组件文件已清除
+        filesCleared()
+        
+        // 刷新UI状态但不加载文件
+        initText.visible = false
+        
+        // 显示状态信息
+        showStatus("文件列表已清空" + (success ? "" : "，但实际文件可能未清除"))
+        
+        return true
+    }
+    
+    // 清除实际的文件系统文件
+    function clearActualFiles() {
+        console.log("尝试清除实际文件夹中的文件")
+        
+        try {
+            // 检查DirectoryHandler是否支持clearTempFiles方法
+            if (directoryHandler) {
+                if (typeof directoryHandler.clearTempFiles === "function") {
+                    // 如果支持则调用
+                    console.log("调用DirectoryHandler.clearTempFiles清除文件")
+                    directoryHandler.clearTempFiles(root.filePath)
+                    return true
+                } else if (typeof directoryHandler.deleteAllFiles === "function") {
+                    // 尝试其他可能的方法名
+                    console.log("调用DirectoryHandler.deleteAllFiles清除文件")
+                    directoryHandler.deleteAllFiles(root.filePath)
+                    return true
+                } else {
+                    // 通过手动删除每个文件来实现清理
+                    console.log("DirectoryHandler不支持批量清除方法，尝试使用deleteFile逐个删除")
+                    
+                    // 先获取所有文件
+                    var files = []
+                    for (var i = 0; i < fileModel.count; i++) {
+                        files.push(fileModel.get(i).name)
+                    }
+                    
+                    // 然后逐个删除
+                    for (var j = 0; j < files.length; j++) {
+                        var filePath = root.filePath + files[j]
+                        console.log("删除文件: " + filePath)
+                        directoryHandler.deleteFile(filePath)
+                    }
+                    
+                    return true
+                }
+            } else {
+                console.error("DirectoryHandler未初始化!")
+                return false
+            }
+        } catch(e) {
+            console.error("清除实际文件时出错:", e)
+            return false
+        }
+    }
+    
+    // 清除登录后的文件列表
+    function clearFilesAfterLogin() {
+        console.log("EnDeCode: 调用clearFilesAfterLogin()方法清除文件列表")
+        
+        // 清空文件模型
+        if (fileModel) {
+            fileModel.clear()
+            console.log("已清空文件模型")
+        } else {
+            console.error("clearFilesAfterLogin: fileModel为空!")
+            return false
+        }
+        
+        // 重置选择状态
+        selectIndex = -1
+        selectName = ""
+        
+        // 清空批量选择状态
+        _selectedFilesObj = ({})
+        selectedFiles = []
+        selectedCount = 0
+        batchMode = false
+        
+        // 尝试清除实际文件
+        var success = clearActualFiles()
+        
+        // 禁止自动刷新文件列表 - 这是关键
+        // 避免自动刷新机制重新加载文件
+        console.log("文件列表已清除，禁止自动刷新")
+        
+        // 停止所有可能的自动刷新定时器
+        if (refreshTimer.running) {
+            refreshTimer.stop()
+            console.log("已停止刷新定时器")
+        }
+        
+        // 显示状态消息
+        showStatus("文件列表已清空" + (success ? "" : "，但实际文件可能未清除"))
+        
+        return true
+    }
+
     // 调试使用，可以看到组件是否加载
     Rectangle {
         anchors.fill: parent
@@ -69,8 +195,19 @@ Item {
         // 显示明显的状态指示
         initText.visible = true
 
-        // 延迟半秒后刷新文件列表，给UI线程时间更新显示
-        refreshTimer.start()
+        // 先清除文件（如果有）- 不进行刷新
+        if (typeof clearFilesAfterLogin === 'function') {
+            console.log("Component.onCompleted: 调用clearFilesAfterLogin")
+            clearFilesAfterLogin()
+            
+            // 隐藏初始化文本，显示清空状态
+            initText.visible = false
+            console.log("已完成文件清理，跳过自动刷新")
+        } else {
+            // 如果没有清除方法，才自动刷新
+            console.log("Component.onCompleted: 启动延迟刷新定时器")
+            refreshTimer.start()
+        }
     }
 
     // 初始化提示文本
@@ -101,13 +238,36 @@ Item {
         repeat: false
         onTriggered: {
             initText.visible = false
-            refreshFileList()
+            
+            // 确保初始化后只有在非清除状态下才刷新文件列表
+            var lastClearOp = (root.loginAccount !== "" && root.loginPasswd !== "")
+            console.log("定时器触发刷新，是否是登录后清除操作:", lastClearOp)
+            
+            if (!lastClearOp) {
+                console.log("正常刷新文件列表")
+                refreshFileList(false)
+            } else {
+                console.log("登录后清除操作，跳过自动刷新文件列表")
+                // 将状态设置为空，避免后续触发刷新
+                selectIndex = -1
+                selectName = ""
+            }
         }
     }
 
     // 刷新文件列表
-    function refreshFileList() {
-        console.log("正在刷新文件列表，路径: " + root.filePath)
+    function refreshFileList(isClearRefresh) {
+        // isClearRefresh参数表示是否是清除后的刷新
+        // 如果是清除后的刷新，则避免重新加载文件
+        var isAfterClear = isClearRefresh === true
+        
+        console.log("正在刷新文件列表，路径: " + root.filePath + ", 清除后刷新: " + isAfterClear)
+
+        // 如果是清除后刷新，只更新UI状态，不重新加载文件
+        if (isAfterClear) {
+            console.log("这是清除后的刷新，只更新UI状态")
+            return
+        }
 
         // 确保文件模型已清空
         if (fileModel) {
@@ -537,7 +697,13 @@ Item {
                             }
                         }
 
-                        onClicked: root.showLogin()
+                        onClicked: {
+                            // 退出前清除文件列表
+                            clearFilesAfterLogin();
+                            
+                            // 显示登录界面
+                            root.showLogin();
+                        }
 
                         ToolTip {
                             text: "退出当前用户账号"

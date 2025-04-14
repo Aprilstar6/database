@@ -36,12 +36,28 @@ Window {
             if (item) {
                 console.log("EnDeCode.item 存在，设置visible为true")
                 item.visible = true
-                // 强制刷新一次
-                if (item.refreshFileList) {
-                    console.log("调用EnDeCode.refreshFileList()刷新文件列表")
-                    item.refreshFileList()
+                
+                // 清除所有文件 - 这是首要任务
+                if (typeof item.clearFiles === 'function') {
+                    console.log("EnDeCode加载完成：清除所有文件")
+                    item.clearFiles()
+                    
+                    // 一秒后显示清除完成消息
+                    var timer = Qt.createQmlObject("import QtQuick 2.15; Timer {}", root);
+                    timer.interval = 1000;
+                    timer.repeat = false;
+                    timer.triggered.connect(function() {
+                        showStatus("文件已清除，界面已准备就绪");
+                    });
+                    timer.start();
                 } else {
-                    console.log("错误: EnDeCode.refreshFileList 方法不存在")
+                    console.error("EnDeCode.clearFiles 方法不存在")
+                    
+                    // 如果没有清除方法，就直接刷新
+                    if (typeof item.refreshFileList === 'function') {
+                        console.log("无法清除文件，直接刷新文件列表")
+                        item.refreshFileList()
+                    }
                 }
             } else {
                 console.log("错误: EnDeCode.item 为null")
@@ -191,19 +207,34 @@ Window {
         loginLoader.active = false;
         keyManagerLoader.active = false;
 
-        // 延迟激活EnDeCode，给UI线程一点时间清理其他界面
-        Qt.callLater(function() {
-            console.log("开始激活EnDeCode界面");
-            endeCodeLoader.active = true;
-
-            // 如果加载器已经是Ready状态，直接刷新
-            if (endeCodeLoader.status === Loader.Ready) {
-                console.log("EnDeCode已经是Ready状态，直接刷新");
-                if (endeCodeLoader.item && endeCodeLoader.item.refreshFileList) {
-                    endeCodeLoader.item.refreshFileList();
+        // 确保EnDeCode加载器处于就绪状态
+        if (endeCodeLoader.status === Loader.Ready) {
+            console.log("EnDeCode已加载，先清理文件");
+            // 如果已经加载，则先清除文件列表
+            if (endeCodeLoader.item && typeof endeCodeLoader.item.clearFiles === 'function') {
+                // 强制清除文件
+                var result = endeCodeLoader.item.clearFiles();
+                console.log("调用clearFiles完成，结果:", result);
+                
+                // 显示清理后的状态信息
+                showStatus("文件已清理，界面已准备就绪");
+                
+                // 确保界面可见
+                endeCodeLoader.active = true;
+                if (endeCodeLoader.item) {
+                    endeCodeLoader.item.visible = true;
                 }
+            } else {
+                console.error("EnDeCode.clearFiles方法不存在或无法调用");
+                endeCodeLoader.active = true;
             }
-        });
+        } else {
+            // 如果尚未加载，先激活它
+            console.log("EnDeCode尚未加载，先激活再清理");
+            endeCodeLoader.active = true;
+            
+            // 等到加载完成后在onLoaded事件中会自动清理文件
+        }
     }
 
     function showKeyManager() {
