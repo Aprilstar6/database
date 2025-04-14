@@ -917,7 +917,36 @@ Item {
                                 Layout.fillWidth: true
                                 model: []
                                 textRole: "name"
-                                height: 36
+                                height: 50  // 增加高度
+                                // 增加委托项
+                                delegate: ItemDelegate {
+                                    width: keySelector.width
+                                    height: 40  // 增加每个选项的高度
+                                    
+                                    contentItem: Text {
+                                        text: modelData.name
+                                        font.pixelSize: 14
+                                        verticalAlignment: Text.AlignVCenter
+                                        horizontalAlignment: Text.AlignLeft
+                                        elide: Text.ElideRight  // 文本溢出时显示省略号
+                                        leftPadding: 10
+                                        rightPadding: 10
+                                        wrapMode: Text.NoWrap
+                                    }
+                                    
+                                    highlighted: keySelector.highlightedIndex === index
+                                }
+
+                                // 显示当前选中项的文本
+                                contentItem: Text {
+                                    leftPadding: 10
+                                    rightPadding: 20  // 给下拉箭头留空间
+                                    text: keySelector.displayText
+                                    font.pixelSize: 14
+                                    verticalAlignment: Text.AlignVCenter
+                                    horizontalAlignment: Text.AlignLeft
+                                    elide: Text.ElideRight
+                                }
 
                                 Component.onCompleted: {
                                     refreshKeyList()
@@ -956,6 +985,28 @@ Item {
                                     }
 
                                     model = keys
+                                }
+
+                                // 设置下拉列表弹出窗口的样式和行为
+                                popup: Popup {
+                                    y: keySelector.height
+                                    width: keySelector.width
+                                    implicitHeight: Math.min(contentItem.implicitHeight, 300) // 最大高度300像素
+                                    padding: 1
+                                    
+                                    contentItem: ListView {
+                                        clip: true
+                                        implicitHeight: contentHeight
+                                        model: keySelector.popup.visible ? keySelector.delegateModel : null
+                                        
+                                        ScrollIndicator.vertical: ScrollIndicator { }
+                                    }
+                                    
+                                    background: Rectangle {
+                                        border.color: keySelector.activeFocus ? primaryColor : borderColor
+                                        border.width: 1
+                                        radius: 5
+                                    }
                                 }
                             }
 
