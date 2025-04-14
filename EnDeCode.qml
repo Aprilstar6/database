@@ -293,6 +293,90 @@ Item {
     Rectangle {
         anchors.fill: parent
         color: lightBgColor
+        
+        // 添加拖放区域
+        DropArea {
+            id: dropArea
+            anchors.fill: parent
+            keys: ["text/uri-list"]
+
+            onEntered: {
+                dropAreaIndicator.visible = true
+            }
+            
+            onExited: {
+                dropAreaIndicator.visible = false
+            }
+            
+            onDropped: {
+                dropAreaIndicator.visible = false
+                
+                if (drop.hasUrls) {
+                    for (var i = 0; i < drop.urls.length; i++) {
+                        var fileName = drop.urls[i].toString();
+                        console.log("拖放文件路径: " + fileName);
+                        
+                        // 处理文件URL格式，去掉前缀，但保留前导斜杠
+                        if (fileName.startsWith("file:///")) {
+                            fileName = fileName.replace("file:///", "/");
+                        } else {
+                            fileName = fileName.replace(/^(file:\/{2,3})|(qrc:\/{2})|(http:\/{2})/,"");
+                        }
+                        
+                        var lastSlash = Math.max(fileName.lastIndexOf('/'), fileName.lastIndexOf('\\'));
+                        var onlyFileName = fileName.substring(lastSlash + 1);
+                        var sourceDir = fileName.substring(0, lastSlash + 1);
+                        var destPath = root.filePath + onlyFileName;
+
+                        console.log("源路径: " + fileName);
+                        console.log("源文件目录: " + sourceDir);
+                        console.log("目标路径: " + destPath);
+
+                        // 将源文件目录保存到文件模型中，以便后续使用
+                        directoryHandler.copyFile(fileName, destPath);
+                        
+                        // 导入后自动选择该文件
+                        refreshFileList();
+                        // 等待文件列表刷新后再选择
+                        Qt.callLater(function() {
+                            for(var j=0; j < fileModel.count; j++) {
+                                if(fileModel.get(j).name === onlyFileName) {
+                                    selectIndex = j;
+                                    selectName = onlyFileName;
+                                    // 保存源文件目录路径
+                                    fileModel.setProperty(j, "sourceDir", sourceDir);
+                                    console.log("已保存源目录: " + sourceDir + " 到文件: " + onlyFileName);
+                                    break;
+                                }
+                            }
+                        });
+                        
+                        showStatus("已导入文件: " + onlyFileName);
+                    }
+                }
+            }
+        }
+    }
+
+    // 拖放区域指示器
+    Rectangle {
+        id: dropAreaIndicator
+        anchors.fill: parent
+        color: "#3498DB"
+        opacity: 0.3
+        visible: false
+        radius: 10
+        border.width: 4
+        border.color: "#2980B9"
+        z: 9000
+        
+        Text {
+            anchors.centerIn: parent
+            text: "释放鼠标导入文件"
+            font.pixelSize: 24
+            font.bold: true
+            color: "#FFFFFF"
+        }
     }
 
     // 整体布局
