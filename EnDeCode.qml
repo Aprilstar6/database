@@ -997,13 +997,13 @@ Item {
                                         // 从文件名中去除加密扩展名
                                         var baseName = selectName
                                         if (baseName.indexOf(".xor") > 0) {
-                                            baseName = baseName.substring(0, baseName.indexOf(".xor"))
+                                            baseName = baseName.substring(0, baseName.lastIndexOf(".xor"))
                                         } else if (baseName.indexOf(".aes") > 0) {
-                                            baseName = baseName.substring(0, baseName.indexOf(".aes"))
+                                            baseName = baseName.substring(0, baseName.lastIndexOf(".aes"))
                                         } else if (baseName.indexOf(".rsa") > 0) {
-                                            baseName = baseName.substring(0, baseName.indexOf(".rsa"))
+                                            baseName = baseName.substring(0, baseName.lastIndexOf(".rsa"))
                                         } else if (baseName.indexOf(".enc") > 0) {
-                                            baseName = baseName.substring(0, baseName.indexOf(".enc"))
+                                            baseName = baseName.substring(0, baseName.lastIndexOf(".enc"))
                                         }
                                         outputPath = sourceDir + "decrypted_" + baseName
                                     }
@@ -1016,13 +1016,13 @@ Item {
                                     } else {
                                         var baseName = selectName
                                         if (baseName.indexOf(".xor") > 0) {
-                                            baseName = baseName.substring(0, baseName.indexOf(".xor"))
+                                            baseName = baseName.substring(0, baseName.lastIndexOf(".xor"))
                                         } else if (baseName.indexOf(".aes") > 0) {
-                                            baseName = baseName.substring(0, baseName.indexOf(".aes"))
+                                            baseName = baseName.substring(0, baseName.lastIndexOf(".aes"))
                                         } else if (baseName.indexOf(".rsa") > 0) {
-                                            baseName = baseName.substring(0, baseName.indexOf(".rsa"))
+                                            baseName = baseName.substring(0, baseName.lastIndexOf(".rsa"))
                                         } else if (baseName.indexOf(".enc") > 0) {
-                                            baseName = baseName.substring(0, baseName.indexOf(".enc"))
+                                            baseName = baseName.substring(0, baseName.lastIndexOf(".enc"))
                                         }
                                         outputPath = root.filePath + "decrypted_" + baseName
                                     }
