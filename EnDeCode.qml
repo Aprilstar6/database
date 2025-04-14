@@ -28,6 +28,13 @@ Item {
         }
     }
 
+    // 批量操作属性
+    property bool batchMode: false
+    property var selectedFiles: []
+    
+    property var _selectedFilesObj: ({}) // 使用对象存储选中状态，避免引用问题
+    property int selectedCount: 0 // 添加计数属性用于UI绑定
+
     // 加密设置
     property int encryptionMethod: 0 // 0 = 传统 XOR, 1 = AES 密码, 2 = RSA, 3 = 混合 AES+RSA
     onEncryptionMethodChanged: {
@@ -52,6 +59,9 @@ Item {
     // 组件完成后初始化
     Component.onCompleted: {
         console.log("EnDeCode界面已加载")
+
+        // 初始化选中文件数组
+        selectedFiles = []
 
         // 清空初始空元素
         fileModel.clear()
@@ -1205,6 +1215,97 @@ Item {
                         }
 
                         Button {
+                            id: batchModeBtn
+                            implicitWidth: 90
+                            implicitHeight: 32
+                            visible: fileModel.count > 0 // 只在有文件时显示
+
+                            background: Rectangle {
+                                radius: 4
+                                color: batchMode ? warningColor : Qt.darker(primaryColor, 1.1)
+                            }
+
+                            contentItem: Text {
+                                text: batchMode ? "退出批量" : "批量操作"
+                                color: "white"
+                                font.pixelSize: 12
+                                horizontalAlignment: Text.AlignHCenter
+                                verticalAlignment: Text.AlignVCenter
+                            }
+
+                            onClicked: {
+                                // 切换模式前重置所有状态
+                                _selectedFilesObj = ({});
+                                selectedFiles = [];
+                                selectedCount = 0;
+                                toggleBatchMode();
+                            }
+                        }
+
+                        Button {
+                            id: checkStatusBtn
+                            implicitWidth: 90
+                            implicitHeight: 32
+                            visible: batchMode // 调试按钮，只在批量模式下显示
+
+                            background: Rectangle {
+                                radius: 4
+                                color: "#666666"
+                            }
+
+                            contentItem: Text {
+                                text: "检查状态"
+                                color: "white"
+                                font.pixelSize: 12
+                                horizontalAlignment: Text.AlignHCenter
+                                verticalAlignment: Text.AlignVCenter
+                            }
+
+                            onClicked: {
+                                // 打印选中状态以便调试
+                                console.log("==== 当前选中状态 ====");
+                                console.log("selectedCount =", selectedCount);
+                                console.log("selectedFiles =", JSON.stringify(selectedFiles));
+                                var keysStr = "";
+                                for (var key in _selectedFilesObj) {
+                                    if (_selectedFilesObj[key] === true) {
+                                        keysStr += key + ", ";
+                                    }
+                                }
+                                console.log("选中的键:", keysStr);
+                                
+                                // 强制重新计算选中数量
+                                updateSelectedFilesArray();
+                                showStatus("已选中: " + selectedCount + " 个文件");
+                            }
+                        }
+
+                        Button {
+                            id: batchDeleteBtn
+                            implicitWidth: 90
+                            implicitHeight: 32
+                            visible: batchMode && selectedCount > 0 // 使用计数属性
+
+                            background: Rectangle {
+                                radius: 4
+                                color: warningColor
+                            }
+
+                            contentItem: Text {
+                                text: "批量删除"
+                                color: "white"
+                                font.pixelSize: 12
+                                horizontalAlignment: Text.AlignHCenter
+                                verticalAlignment: Text.AlignVCenter
+                            }
+
+                            onClicked: {
+                                console.log("顶部批量删除按钮点击")
+                                prepareBatchDelete()
+                            }
+                        }
+
+                        Button {
                             id: refreshBtn
                             implicitWidth: 90
                             implicitHeight: 32
@@ -1227,6 +1328,9 @@ Item {
                                 if (keySelector) {
                                     keySelector.refreshKeyList()
                                 }
+                                // 退出批量模式
+                                batchMode = false
+                                selectedFiles = []
                             }
                         }
 
@@ -1260,6 +1364,93 @@ Item {
                         radius: 5
                         border.color: borderColor
                         border.width: 1
+
+                        // 批量模式提示和删除按钮 - 显示在文件列表顶部
+                        Rectangle {
+                            id: batchModeHeader
+                            width: parent.width
+                            height: 50
+                            color: warningColor.toString().replace("#", "#AA") // 半透明
+                            visible: batchMode
+                            anchors.top: parent.top
+                            radius: 5
+                            z: 10 // 确保在顶层
+                            
+                            RowLayout {
+                                anchors.fill: parent
+                                anchors.margins: 10
+                                spacing: 10
+                                
+                                Text {
+                                    text: "<b>批量模式</b>: 点击文件选择要删除的项目"
+                                    font.pixelSize: 14
+                                    color: "white"
+                                }
+                                
+                                Item { Layout.fillWidth: true }
+                                
+                                Text {
+                                    text: selectedCount > 0 ? 
+                                          "已选择 " + selectedCount + " 个文件" : "未选择文件"
+                                    font.pixelSize: 14
+                                    color: "white"
+                                }
+                                
+                                Button {
+                                    text: "批量删除"
+                                    enabled: selectedCount > 0
+                                    opacity: enabled ? 1.0 : 0.5
+                                    implicitWidth: 100
+                                    implicitHeight: 30
+                                    
+                                    background: Rectangle {
+                                        radius: 4
+                                        color: "#cc0000"
+                                        border.color: "white"
+                                        border.width: 1
+                                    }
+                                    
+                                    contentItem: Text {
+                                        text: parent.text
+                                        color: "white"
+                                        font.pixelSize: 14
+                                        font.bold: true
+                                        horizontalAlignment: Text.AlignHCenter
+                                        verticalAlignment: Text.AlignVCenter
+                                    }
+                                    
+                                    onClicked: {
+                                        console.log("中部批量删除按钮点击")
+                                        prepareBatchDelete()
+                                    }
+                                }
+                                
+                                Button {
+                                    text: "退出批量模式"
+                                    implicitWidth: 100
+                                    implicitHeight: 30
+                                    
+                                    background: Rectangle {
+                                        radius: 4
+                                        color: Qt.darker(primaryColor, 1.1)
+                                        border.color: "white"
+                                        border.width: 1
+                                    }
+                                    
+                                    contentItem: Text {
+                                        text: parent.text
+                                        color: "white"
+                                        font.pixelSize: 14
+                                        horizontalAlignment: Text.AlignHCenter
+                                        verticalAlignment: Text.AlignVCenter
+                                    }
+                                    
+                                    onClicked: {
+                                        toggleBatchMode()
+                                    }
+                                }
+                            }
+                        }
 
                         // 空状态消息
                         Column {
@@ -1339,11 +1530,59 @@ Item {
                                         height: gridView.cellHeight * 0.92
                                         anchors.centerIn: parent
                                         radius: 8
-                                        color: selectIndex === index ? selectedColor : cardColor
+                                        color: (batchMode && isFileSelected(index)) ? selectedColor : 
+                                               (selectIndex === index && !batchMode) ? selectedColor : cardColor
                                         border.width: 1
-                                        border.color: selectIndex === index ? primaryColor : borderColor
+                                        border.color: (batchMode && isFileSelected(index)) ? accentColor :
+                                                     (selectIndex === index && !batchMode) ? primaryColor : borderColor
 
-                                        // 删除按钮
+                                        // 复选框 - 仅在批量模式下显示
+                                        Rectangle {
+                                            id: checkbox
+                                            width: 22
+                                            height: 22
+                                            radius: 4
+                                            color: isFileSelected(index) ? accentColor : "white"
+                                            border.width: 2
+                                            border.color: isFileSelected(index) ? accentColor : borderColor
+                                            anchors.left: parent.left
+                                            anchors.top: parent.top
+                                            anchors.leftMargin: 8
+                                            anchors.topMargin: 8
+                                            visible: batchMode
+                                            z: 3
+                                            
+                                            Text {
+                                                anchors.centerIn: parent
+                                                text: "✓"
+                                                font.pixelSize: 16
+                                                font.bold: true
+                                                color: "white"
+                                                visible: isFileSelected(index)
+                                            }
+                                            
+                                            // 单独的复选框鼠标区域
+                                            MouseArea {
+                                                anchors.fill: parent
+                                                anchors.margins: -5 // 稍微扩大点击区域
+                                                onClicked: {
+                                                    if (batchMode) {
+                                                        // 直接调用选择方法
+                                                        toggleSelection(index);
+                                                        
+                                                        // 手动更新当前项的UI状态
+                                                        checkbox.color = isFileSelected(index) ? accentColor : "white";
+                                                        checkbox.border.color = isFileSelected(index) ? accentColor : borderColor;
+                                                        fileCard.color = isFileSelected(index) ? selectedColor : cardColor;
+                                                        fileCard.border.color = isFileSelected(index) ? accentColor : borderColor;
+                                                    }
+                                                    // 阻止事件传播
+                                                    mouse.accepted = true;
+                                                }
+                                            }
+                                        }
+
+                                        // 删除按钮 - 不在批量模式时显示
                                         Rectangle {
                                             id: deleteButton
                                             width: 24
@@ -1372,6 +1611,7 @@ Item {
                                                     // 确认删除
                                                     deleteConfirmDialog.fileName = model.name
                                                     deleteConfirmDialog.fileIndex = index
+                                                    deleteConfirmDialog.isBatchDelete = false
                                                     deleteConfirmDialog.open()
                                                 }
                                             }
@@ -1422,22 +1662,37 @@ Item {
                                         MouseArea {
                                             anchors.fill: parent
                                             onClicked: {
-                                                selectIndex = index
-                                                selectName = model.name
+                                                if (batchMode) {
+                                                    // 直接调用选择方法
+                                                    toggleSelection(index);
+                                                    
+                                                    // 手动更新当前项的UI状态
+                                                    checkbox.color = isFileSelected(index) ? accentColor : "white";
+                                                    checkbox.border.color = isFileSelected(index) ? accentColor : borderColor;
+                                                    fileCard.color = isFileSelected(index) ? selectedColor : cardColor;
+                                                    fileCard.border.color = isFileSelected(index) ? accentColor : borderColor;
+                                                } else {
+                                                    selectIndex = index;
+                                                    selectName = model.name;
+                                                }
                                             }
 
                                             hoverEnabled: true
                                             onEntered: {
-                                                if (selectIndex !== index) {
+                                                if (!batchMode && selectIndex !== index) {
                                                     fileCard.color = hoverColor
                                                 }
-                                                deleteButton.visible = true
+                                                if (!batchMode) {
+                                                    deleteButton.visible = true
+                                                }
                                             }
                                             onExited: {
-                                                if (selectIndex !== index) {
+                                                if (!batchMode && selectIndex !== index) {
                                                     fileCard.color = cardColor
                                                 }
-                                                deleteButton.visible = false
+                                                if (!batchMode) {
+                                                    deleteButton.visible = false
+                                                }
                                             }
                                         }
                                     }
@@ -1512,11 +1767,164 @@ Item {
         return "#34495E"; // 深蓝灰色
     }
 
+    // 当批量模式改变时触发
+    onBatchModeChanged: {
+        console.log("批量模式变更为: " + batchMode);
+        
+        if (batchMode) {
+            // 进入批量模式时重置选中状态
+            _selectedFilesObj = ({});
+            selectedFiles = [];
+            selectedCount = 0;
+            console.log("进入批量模式，已重置选中状态");
+        } else {
+            // 退出批量模式时清空选择
+            _selectedFilesObj = ({});
+            selectedFiles = [];
+            selectedCount = 0;
+            console.log("退出批量模式，已清空选中状态");
+        }
+    }
+    
+    // 切换批量模式
+    function toggleBatchMode() {
+        // 直接修改属性，会触发onBatchModeChanged
+        batchMode = !batchMode
+        console.log("切换批量模式为: " + batchMode)
+    }
+    
+    // 获取选中的文件总数
+    function getSelectedCount() {
+        return selectedCount;
+    }
+    
+    // 检查文件是否被选中
+    function isFileSelected(index) {
+        var key = "idx_" + index;
+        var selected = _selectedFilesObj[key] === true;
+        // console.log("检查选中状态: " + key + " = " + selected);
+        return selected;
+    }
+    
+    // 强制刷新特定索引的文件项UI
+    function forceUIRefresh(index) {
+        // 触发每个相关元素的刷新
+        if (index >= 0 && index < fileModel.count) {
+            // 查找对应的GridView代理项强制更新
+            for (var i = 0; i < gridView.contentItem.children.length; i++) {
+                var item = gridView.contentItem.children[i];
+                if (item && item.GridView && item.GridView.view === gridView) {
+                    // 尝试访问复选框和文件卡片
+                    var checkbox = item.children[0].children[0]; // checkbox
+                    var fileCard = item.children[0]; // fileCard
+                    
+                    if (checkbox) {
+                        checkbox.color = isFileSelected(index) ? accentColor : "white";
+                        checkbox.border.color = isFileSelected(index) ? accentColor : borderColor;
+                    }
+                    
+                    if (fileCard) {
+                        fileCard.color = isFileSelected(index) ? selectedColor : cardColor;
+                        fileCard.border.color = isFileSelected(index) ? accentColor : borderColor;
+                    }
+                }
+            }
+            
+            console.log("强制刷新文件项 UI: index=" + index + 
+                       ", 选中状态=" + isFileSelected(index));
+        }
+    }
+    
+    // 更新选中文件数组，用于批量操作
+    function updateSelectedFilesArray() {
+        selectedFiles = [];
+        var count = 0;
+        
+        for (var key in _selectedFilesObj) {
+            if (_selectedFilesObj[key] === true) {
+                // 提取索引数字
+                var idxStr = key.replace("idx_", "");
+                var idx = parseInt(idxStr);
+                if (!isNaN(idx)) {
+                    selectedFiles.push(idx);
+                    count++;
+                }
+            }
+        }
+        
+        // 更新计数属性
+        selectedCount = count;
+        
+        // 更新批量删除按钮的可见性
+        if (batchDeleteBtn) {
+            batchDeleteBtn.visible = batchMode && selectedCount > 0;
+        }
+        
+        console.log("更新选中文件状态: 总数=" + selectedCount + 
+                   ", 选中项=" + JSON.stringify(selectedFiles));
+    }
+    
+    // 准备批量删除
+    function prepareBatchDelete() {
+        // 先强制更新选中文件状态
+        updateSelectedFilesArray();
+        
+        console.log("准备批量删除，当前选中: " + selectedCount + " 个文件", "选中ID:", JSON.stringify(selectedFiles));
+        
+        // 确认批量删除
+        deleteConfirmDialog.fileNames = [];
+        deleteConfirmDialog.fileIndices = [];
+        
+        // 如果没有选中文件，直接返回
+        if (selectedCount === 0) {
+            showStatus("请先选择要删除的文件");
+            console.log("无选中文件，取消批量删除");
+            return;
+        }
+        
+        // 按照索引从大到小排序，以便从后向前删除
+        var sortedIndices = selectedFiles.slice().sort(function(a, b) { return b - a });
+        console.log("待删除文件索引(已排序): " + JSON.stringify(sortedIndices));
+        
+        for (var i = 0; i < sortedIndices.length; i++) {
+            var idx = sortedIndices[i];
+            if (idx >= 0 && idx < fileModel.count) {
+                try {
+                    var fileName = fileModel.get(idx).name;
+                    deleteConfirmDialog.fileNames.push(fileName);
+                    deleteConfirmDialog.fileIndices.push(idx);
+                    console.log("添加到删除列表: 索引=" + idx + ", 文件名=" + fileName);
+                } catch (e) {
+                    console.error("获取文件信息出错: " + e);
+                }
+            }
+        }
+        
+        // 再次确认文件数量正确
+        var fileCount = deleteConfirmDialog.fileIndices.length;
+        deleteConfirmDialog.fileCount = fileCount;
+        console.log("确认对话框: 选中文件数=" + fileCount + ", 数组长度=" + deleteConfirmDialog.fileIndices.length);
+        
+        if (fileCount > 0) {
+            // 显示提示信息
+            showStatus("正在打开删除确认对话框，选中了 " + fileCount + " 个文件");
+            
+            // 设置批量删除标志
+            deleteConfirmDialog.isBatchDelete = true;
+            
+            // 打开确认对话框
+            deleteConfirmDialog.open();
+        } else {
+            console.log("没有有效文件可删除");
+            showStatus("没有有效的文件可删除");
+        }
+    }
+
     // 文件删除确认对话框
     Window {
         id: deleteConfirmDialog
         width: 400
-        height: 200
+        height: 220 // 增加一点高度，显示更多信息
         flags: Qt.Dialog | Qt.WindowCloseButtonHint
         modality: Qt.ApplicationModal
         visible: false
@@ -1526,8 +1934,15 @@ Item {
 
         property string fileName: ""
         property int fileIndex: -1
+        property bool isBatchDelete: false
+        property var fileNames: []
+        property var fileIndices: []
+        property int fileCount: 0 // 添加一个属性来保存文件数量
 
         function open() {
+            // 更新文件计数
+            fileCount = fileIndices.length;
+            console.log("打开删除确认对话框: " + (isBatchDelete ? "批量删除 " + fileCount + " 个文件" : "单文件删除"));
             visible = true;
         }
 
@@ -1542,10 +1957,47 @@ Item {
 
             Text {
                 Layout.fillWidth: true
-                text: "确定要删除文件 \"" + deleteConfirmDialog.fileName + "\" 吗？此操作不可撤销。"
+                text: deleteConfirmDialog.isBatchDelete ? 
+                      "确定要删除选中的 " + deleteConfirmDialog.fileCount + " 个文件吗？\n此操作不可撤销。" :
+                      "确定要删除文件 \"" + deleteConfirmDialog.fileName + "\" 吗？\n此操作不可撤销。"
                 wrapMode: Text.WordWrap
                 font.pixelSize: 16
                 color: "#394149"
+            }
+
+            // 显示文件列表
+            Rectangle {
+                Layout.fillWidth: true
+                visible: deleteConfirmDialog.isBatchDelete && deleteConfirmDialog.fileCount > 0
+                height: deleteConfirmDialog.fileCount > 3 ? 60 : 30
+                color: "#F5F7FA"
+                
+                ScrollView {
+                    anchors.fill: parent
+                    clip: true
+                    
+                    Text {
+                        text: {
+                            if (!deleteConfirmDialog.isBatchDelete) return "";
+                            
+                            var files = [];
+                            for (var i = 0; i < Math.min(deleteConfirmDialog.fileCount, 5); i++) {
+                                if (i < deleteConfirmDialog.fileNames.length) {
+                                    files.push(deleteConfirmDialog.fileNames[i]);
+                                }
+                            }
+                            
+                            if (deleteConfirmDialog.fileCount > 5) {
+                                files.push("以及其他 " + (deleteConfirmDialog.fileCount - 5) + " 个文件");
+                            }
+                            
+                            return files.join("\n");
+                        }
+                        font.pixelSize: 12
+                        color: "#666666"
+                        padding: 5
+                    }
+                }
             }
 
             RowLayout {
@@ -1584,25 +2036,90 @@ Item {
                     }
 
                     onClicked: {
-                        // 执行删除
-                        if (deleteConfirmDialog.fileIndex >= 0 && deleteConfirmDialog.fileIndex < fileModel.count) {
-                            var filePath = root.filePath + deleteConfirmDialog.fileName;
-                            directoryHandler.deleteFile(filePath);
-                            fileModel.remove(deleteConfirmDialog.fileIndex);
+                        console.log("删除确认: " + (deleteConfirmDialog.isBatchDelete ? "批量删除 " + deleteConfirmDialog.fileCount + " 个文件" : "单文件删除"))
+                        
+                        if (deleteConfirmDialog.isBatchDelete) {
+                            // 批量删除
+                            var count = deleteConfirmDialog.fileIndices.length
+                            console.log("开始批量删除 " + count + " 个文件")
                             
-                            // 如果删除的是当前选中的文件，重置选择
-                            if (deleteConfirmDialog.fileIndex === selectIndex) {
-                                selectIndex = -1;
-                                selectName = "";
-                            } else if (deleteConfirmDialog.fileIndex < selectIndex) {
-                                // 如果删除的文件在当前选中文件之前，调整选择索引
-                                selectIndex--;
+                            for (var i = 0; i < count; i++) {
+                                var idx = deleteConfirmDialog.fileIndices[i];
+                                var name = deleteConfirmDialog.fileNames[i];
+                                
+                                // 删除文件
+                                var filePath = root.filePath + name;
+                                console.log("删除文件: " + filePath)
+                                directoryHandler.deleteFile(filePath);
+                            }
+                            
+                            // 重置选择
+                            selectIndex = -1;
+                            selectName = "";
+                            
+                            // 退出批量模式
+                            _selectedFilesObj = ({});
+                            selectedFiles = [];
+                            batchMode = false;
+                            
+                            // 显示状态消息
+                            showStatus("已删除 " + count + " 个文件");
+                            console.log("批量删除完成，已删除 " + count + " 个文件");
+                            
+                            // 刷新文件列表 - 放在最后，因为此操作会重新加载界面
+                            refreshFileList();
+                        } else {
+                            // 单个文件删除
+                            if (deleteConfirmDialog.fileIndex >= 0 && deleteConfirmDialog.fileIndex < fileModel.count) {
+                                var filePath = root.filePath + deleteConfirmDialog.fileName;
+                                console.log("删除单个文件: " + filePath)
+                                directoryHandler.deleteFile(filePath);
+                                
+                                // 从模型中删除
+                                try {
+                                    fileModel.remove(deleteConfirmDialog.fileIndex);
+                                    console.log("已从模型中移除文件索引: " + deleteConfirmDialog.fileIndex)
+                                } catch (e) {
+                                    console.error("从模型移除文件失败: " + e)
+                                }
+                                
+                                // 如果删除的是当前选中的文件，重置选择
+                                if (deleteConfirmDialog.fileIndex === selectIndex) {
+                                    selectIndex = -1;
+                                    selectName = "";
+                                    console.log("已重置文件选择")
+                                } else if (deleteConfirmDialog.fileIndex < selectIndex) {
+                                    // 如果删除的文件在当前选中文件之前，调整选择索引
+                                    selectIndex--;
+                                    console.log("调整选择索引为: " + selectIndex)
+                                }
                             }
                         }
+                        
+                        // 关闭对话框
                         deleteConfirmDialog.close();
                     }
                 }
             }
         }
+    }
+
+    // 切换单个文件的选中状态
+    function toggleSelection(index) {
+        // 使用字符串键，避免JavaScript自动转换带来的问题
+        var key = "idx_" + index;
+        
+        if (_selectedFilesObj[key] === true) {
+            // 取消选择
+            _selectedFilesObj[key] = false;
+            console.log("取消选择: " + key);
+        } else {
+            // 添加选择
+            _selectedFilesObj[key] = true;
+            console.log("添加选择: " + key);
+        }
+        
+        // 更新选中文件数组和计数
+        updateSelectedFilesArray();
     }
 }
