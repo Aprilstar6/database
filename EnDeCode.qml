@@ -341,49 +341,83 @@ Item {
         title: "选择文件"
         folder: "file:///home"
         nameFilters: ["所有文件 (*.*)"]
+        fileMode: FileDialog.OpenFiles // 修改为支持多文件选择
         
         onAccepted: {
-            var fileName = fileDialog.file.toString();
-            console.log("原始文件路径: " + fileName);
+            // 保存所有需要导入的文件信息
+            var filesToImport = [];
+            var filesList = fileDialog.files;
             
-            // 处理文件URL格式，去掉前缀，但保留前导斜杠
-            if (fileName.startsWith("file:///")) {
-                fileName = fileName.replace("file:///", "/");
-            } else {
-                fileName = fileName.replace(/^(file:\/{2,3})|(qrc:\/{2})|(http:\/{2})/,"");
+            // 首先收集所有文件信息
+            for (var i = 0; i < filesList.length; i++) {
+                var fileName = filesList[i].toString();
+                console.log("选择的文件路径: " + fileName);
+                
+                // 处理文件URL格式，去掉前缀，但保留前导斜杠
+                if (fileName.startsWith("file:///")) {
+                    fileName = fileName.replace("file:///", "/");
+                } else {
+                    fileName = fileName.replace(/^(file:\/{2,3})|(qrc:\/{2})|(http:\/{2})/,"");
+                }
+                
+                var lastSlash = Math.max(fileName.lastIndexOf('/'), fileName.lastIndexOf('\\'));
+                var onlyFileName = fileName.substring(lastSlash + 1);
+                var sourceDir = fileName.substring(0, lastSlash + 1);
+                var destPath = root.filePath + onlyFileName;
+
+                console.log("源路径: " + fileName);
+                console.log("源文件目录: " + sourceDir);
+                console.log("目标路径: " + destPath);
+
+                // 保存文件信息到数组
+                filesToImport.push({
+                    fullPath: fileName,
+                    name: onlyFileName,
+                    sourceDir: sourceDir,
+                    destPath: destPath
+                });
+                
+                // 复制文件到临时目录
+                directoryHandler.copyFile(fileName, destPath);
             }
             
-            console.log("处理后文件路径: " + fileName);
-            
-            var lastSlash = Math.max(fileName.lastIndexOf('/'), fileName.lastIndexOf('\\'));
-            var onlyFileName = fileName.substring(lastSlash + 1);
-            var sourceDir = fileName.substring(0, lastSlash + 1);
-            var destPath = root.filePath + onlyFileName;
-
-            console.log("源路径: " + fileName);
-            console.log("源文件目录: " + sourceDir);
-            console.log("目标路径: " + destPath);
-
-            // 将源文件目录保存到文件模型中，以便后续使用
-            directoryHandler.copyFile(fileName, destPath);
-            
-            // 导入后自动选择该文件
+            // 所有文件复制完成后，一次性刷新文件列表
+            console.log("所有文件已复制，开始刷新文件列表");
             refreshFileList();
-            // 等待文件列表刷新后再选择
+            
+            // 等待文件列表刷新完成后，设置所有文件的源目录
             Qt.callLater(function() {
-                for(var i=0; i < fileModel.count; i++) {
-                    if(fileModel.get(i).name === onlyFileName) {
-                        selectIndex = i;
-                        selectName = onlyFileName;
-                        // 保存源文件目录路径
-                        fileModel.setProperty(i, "sourceDir", sourceDir);
-                        console.log("已保存源目录: " + sourceDir + " 到文件: " + onlyFileName);
-                        break;
+                console.log("开始为所有导入文件设置源目录信息");
+                
+                // 为每个文件设置源目录
+                for (var j = 0; j < filesToImport.length; j++) {
+                    var fileInfo = filesToImport[j];
+                    
+                    // 在文件模型中查找匹配的文件
+                    for (var k = 0; k < fileModel.count; k++) {
+                        if (fileModel.get(k).name === fileInfo.name) {
+                            // 设置源目录属性
+                            fileModel.setProperty(k, "sourceDir", fileInfo.sourceDir);
+                            console.log("已设置源目录: " + fileInfo.sourceDir + " 到文件: " + fileInfo.name);
+                            break;
+                        }
                     }
                 }
+                
+                // 如果有文件被导入，选择第一个文件
+                if (filesToImport.length > 0 && fileModel.count > 0) {
+                    for (var m = 0; m < fileModel.count; m++) {
+                        if (fileModel.get(m).name === filesToImport[0].name) {
+                            selectIndex = m;
+                            selectName = filesToImport[0].name;
+                            break;
+                        }
+                    }
+                }
+                
+                // 显示导入完成消息
+                showStatus("已导入 " + filesToImport.length + " 个文件");
             });
-            
-            showStatus("已导入文件: " + onlyFileName);
         }
         
         onRejected: {
@@ -482,6 +516,10 @@ Item {
                 dropAreaIndicator.visible = false
                 
                 if (drop.hasUrls) {
+                    // 保存所有需要导入的文件信息
+                    var filesToImport = [];
+                    
+                    // 首先收集所有文件信息
                     for (var i = 0; i < drop.urls.length; i++) {
                         var fileName = drop.urls[i].toString();
                         console.log("拖放文件路径: " + fileName);
@@ -502,27 +540,55 @@ Item {
                         console.log("源文件目录: " + sourceDir);
                         console.log("目标路径: " + destPath);
 
-                        // 将源文件目录保存到文件模型中，以便后续使用
-                        directoryHandler.copyFile(fileName, destPath);
+                        // 保存文件信息到数组
+                        filesToImport.push({
+                            fullPath: fileName,
+                            name: onlyFileName,
+                            sourceDir: sourceDir,
+                            destPath: destPath
+                        });
                         
-                        // 导入后自动选择该文件
-                        refreshFileList();
-                        // 等待文件列表刷新后再选择
-                        Qt.callLater(function() {
-                            for(var j=0; j < fileModel.count; j++) {
-                                if(fileModel.get(j).name === onlyFileName) {
-                                    selectIndex = j;
-                                    selectName = onlyFileName;
-                                    // 保存源文件目录路径
-                                    fileModel.setProperty(j, "sourceDir", sourceDir);
-                                    console.log("已保存源目录: " + sourceDir + " 到文件: " + onlyFileName);
+                        // 复制文件到临时目录
+                        directoryHandler.copyFile(fileName, destPath);
+                    }
+                    
+                    // 所有文件复制完成后，一次性刷新文件列表
+                    console.log("所有文件已复制，开始刷新文件列表");
+                    refreshFileList();
+                    
+                    // 等待文件列表刷新完成后，设置所有文件的源目录
+                    Qt.callLater(function() {
+                        console.log("开始为所有导入文件设置源目录信息");
+                        
+                        // 为每个文件设置源目录
+                        for (var j = 0; j < filesToImport.length; j++) {
+                            var fileInfo = filesToImport[j];
+                            
+                            // 在文件模型中查找匹配的文件
+                            for (var k = 0; k < fileModel.count; k++) {
+                                if (fileModel.get(k).name === fileInfo.name) {
+                                    // 设置源目录属性
+                                    fileModel.setProperty(k, "sourceDir", fileInfo.sourceDir);
+                                    console.log("已设置源目录: " + fileInfo.sourceDir + " 到文件: " + fileInfo.name);
                                     break;
                                 }
                             }
-                        });
+                        }
                         
-                        showStatus("已导入文件: " + onlyFileName);
-                    }
+                        // 如果有文件被导入，选择第一个文件
+                        if (filesToImport.length > 0 && fileModel.count > 0) {
+                            for (var m = 0; m < fileModel.count; m++) {
+                                if (fileModel.get(m).name === filesToImport[0].name) {
+                                    selectIndex = m;
+                                    selectName = filesToImport[0].name;
+                                    break;
+                                }
+                            }
+                        }
+                        
+                        // 显示导入完成消息
+                        showStatus("已导入 " + filesToImport.length + " 个文件");
+                    });
                 }
             }
         }
@@ -1523,6 +1589,56 @@ Item {
                         }
 
                         Button {
+                            id: batchEncryptBtn
+                            implicitWidth: 90
+                            implicitHeight: 32
+                            visible: batchMode && selectedCount > 0 // 使用计数属性
+
+                            background: Rectangle {
+                                radius: 4
+                                color: accentColor
+                            }
+
+                            contentItem: Text {
+                                text: "批量加密"
+                                color: "white"
+                                font.pixelSize: 12
+                                horizontalAlignment: Text.AlignHCenter
+                                verticalAlignment: Text.AlignVCenter
+                            }
+
+                            onClicked: {
+                                console.log("批量加密按钮点击")
+                                batchEncryptFiles()
+                            }
+                        }
+
+                        Button {
+                            id: batchDecryptBtn
+                            implicitWidth: 90
+                            implicitHeight: 32
+                            visible: batchMode && selectedCount > 0 // 使用计数属性
+
+                            background: Rectangle {
+                                radius: 4
+                                color: primaryColor
+                            }
+
+                            contentItem: Text {
+                                text: "批量解密"
+                                color: "white"
+                                font.pixelSize: 12
+                                horizontalAlignment: Text.AlignHCenter
+                                verticalAlignment: Text.AlignVCenter
+                            }
+
+                            onClicked: {
+                                console.log("批量解密按钮点击")
+                                batchDecryptFiles()
+                            }
+                        }
+
+                        Button {
                             id: refreshBtn
                             implicitWidth: 90
                             implicitHeight: 32
@@ -1599,7 +1715,7 @@ Item {
                                 spacing: 10
                                 
                                 Text {
-                                    text: "<b>批量模式</b>: 点击文件选择要删除的项目"
+                                    text: "<b>批量模式</b>: 点击文件选择要操作的项目"
                                     font.pixelSize: 14
                                     color: "white"
                                 }
@@ -1614,10 +1730,66 @@ Item {
                                 }
                                 
                                 Button {
+                                    text: "批量加密"
+                                    enabled: selectedCount > 0
+                                    opacity: enabled ? 1.0 : 0.5
+                                    implicitWidth: 80
+                                    implicitHeight: 30
+                                    
+                                    background: Rectangle {
+                                        radius: 4
+                                        color: accentColor
+                                        border.color: "white"
+                                        border.width: 1
+                                    }
+                                    
+                                    contentItem: Text {
+                                        text: parent.text
+                                        color: "white"
+                                        font.pixelSize: 14
+                                        font.bold: true
+                                        horizontalAlignment: Text.AlignHCenter
+                                        verticalAlignment: Text.AlignVCenter
+                                    }
+                                    
+                                    onClicked: {
+                                        batchEncryptFiles()
+                                    }
+                                }
+                                
+                                Button {
+                                    text: "批量解密"
+                                    enabled: selectedCount > 0
+                                    opacity: enabled ? 1.0 : 0.5
+                                    implicitWidth: 80
+                                    implicitHeight: 30
+                                    
+                                    background: Rectangle {
+                                        radius: 4
+                                        color: primaryColor
+                                        border.color: "white"
+                                        border.width: 1
+                                    }
+                                    
+                                    contentItem: Text {
+                                        text: parent.text
+                                        color: "white"
+                                        font.pixelSize: 14
+                                        font.bold: true
+                                        horizontalAlignment: Text.AlignHCenter
+                                        verticalAlignment: Text.AlignVCenter
+                                    }
+                                    
+                                    onClicked: {
+                                        batchDecryptFiles()
+                                    }
+                                }
+                                
+                                Button {
                                     text: "批量删除"
                                     enabled: selectedCount > 0
                                     opacity: enabled ? 1.0 : 0.5
-                                    implicitWidth: 100
+                                    implicitWidth: 80
                                     implicitHeight: 30
                                     
                                     background: Rectangle {
@@ -1639,31 +1811,6 @@ Item {
                                     onClicked: {
                                         console.log("中部批量删除按钮点击")
                                         prepareBatchDelete()
-                                    }
-                                }
-                                
-                                Button {
-                                    text: "退出批量模式"
-                                    implicitWidth: 100
-                                    implicitHeight: 30
-                                    
-                                    background: Rectangle {
-                                        radius: 4
-                                        color: Qt.darker(primaryColor, 1.1)
-                                        border.color: "white"
-                                        border.width: 1
-                                    }
-                                    
-                                    contentItem: Text {
-                                        text: parent.text
-                                        color: "white"
-                                        font.pixelSize: 14
-                                        horizontalAlignment: Text.AlignHCenter
-                                        verticalAlignment: Text.AlignVCenter
-                                    }
-                                    
-                                    onClicked: {
-                                        toggleBatchMode()
                                     }
                                 }
                             }
@@ -2338,5 +2485,264 @@ Item {
         
         // 更新选中文件数组和计数
         updateSelectedFilesArray();
+    }
+    
+    // 批量加密文件
+    function batchEncryptFiles() {
+        // 更新选中文件列表
+        updateSelectedFilesArray();
+        
+        if (selectedCount === 0) {
+            showStatus("请先选择要加密的文件");
+            return;
+        }
+        
+        console.log("开始批量加密 " + selectedCount + " 个文件");
+        
+        // 检查加密参数
+        if (encryptionMethod === 0 && passwordField.text.length === 0) {
+            showStatus("请输入密码");
+            return;
+        }
+        
+        if ((encryptionMethod === 1) && 
+            (keySelector.currentIndex < 0 && aesPasswordField.text.length === 0)) {
+            showStatus("请选择密钥或输入密码");
+            return;
+        }
+        
+        if ((encryptionMethod === 2 || encryptionMethod === 3) && 
+            keySelector.currentIndex < 0) {
+            showStatus("请选择密钥");
+            return;
+        }
+        
+        var processedCount = 0;
+        var errorCount = 0;
+        
+        // 处理所有选中的文件
+        for (var i = 0; i < selectedFiles.length; i++) {
+            var index = selectedFiles[i];
+            if (index >= 0 && index < fileModel.count) {
+                var fileName = fileModel.get(index).name;
+                var sourceDir = "";
+                
+                // 获取源文件目录
+                try {
+                    sourceDir = fileModel.get(index).sourceDir;
+                    console.log("获取到源文件目录:", sourceDir);
+                } catch(e) {
+                    console.log("无法获取源目录，使用默认目录:", e);
+                }
+                
+                var inputPath = root.filePath + fileName;
+                var outputPath = "";
+                
+                // 设置输出路径
+                if (sourceDir && sourceDir.length > 0) {
+                    // 使用源目录作为输出目录
+                    var extension = "";
+                    switch (encryptionMethod) {
+                        case 0: extension = ".xor"; break;
+                        case 1: extension = ".aes"; break;
+                        case 2: extension = ".rsa"; break;
+                        case 3: extension = ".enc"; break;
+                    }
+                    outputPath = sourceDir + fileName + extension;
+                } else {
+                    // 使用当前目录
+                    var extension = "";
+                    switch (encryptionMethod) {
+                        case 0: extension = ".xor"; break;
+                        case 1: extension = ".aes"; break;
+                        case 2: extension = ".rsa"; break;
+                        case 3: extension = ".enc"; break;
+                    }
+                    outputPath = root.filePath + fileName + extension;
+                }
+                
+                console.log("批量加密文件: " + inputPath + " -> " + outputPath);
+                
+                var success = false;
+                // 执行加密
+                switch (encryptionMethod) {
+                    case 0:  // Legacy XOR
+                        directoryHandler.enCodeFile(inputPath, outputPath, passwordField.text);
+                        success = true;
+                        break;
+                        
+                    case 1:  // AES
+                        if (keySelector.currentIndex >= 0) {
+                            // 使用选择的AES密钥
+                            var selectedKeyName = keySelector.model[keySelector.currentIndex].name;
+                            success = directoryHandler.encryptFileAES(inputPath, outputPath, selectedKeyName);
+                        } else if (aesPasswordField.text.length > 0) {
+                            // 使用手动输入的密码
+                            success = directoryHandler.encryptFileAES(inputPath, outputPath, aesPasswordField.text);
+                        }
+                        break;
+                        
+                    case 2:  // RSA
+                        success = directoryHandler.encryptFileRSA(inputPath, outputPath, keySelector.currentText);
+                        break;
+                        
+                    case 3:  // Hybrid
+                        success = directoryHandler.encryptFileHybrid(inputPath, outputPath, keySelector.currentText);
+                        break;
+                }
+                
+                if (success) {
+                    processedCount++;
+                } else {
+                    errorCount++;
+                    console.log("加密文件失败: " + fileName);
+                }
+            }
+        }
+        
+        // 显示结果
+        if (errorCount > 0) {
+            showStatus("批量加密完成: " + processedCount + " 个成功，" + errorCount + " 个失败");
+        } else {
+            showStatus("批量加密完成: " + processedCount + " 个文件");
+        }
+        
+        // 退出批量模式
+        batchMode = false;
+    }
+    
+    // 批量解密文件
+    function batchDecryptFiles() {
+        // 更新选中文件列表
+        updateSelectedFilesArray();
+        
+        if (selectedCount === 0) {
+            showStatus("请先选择要解密的文件");
+            return;
+        }
+        
+        console.log("开始批量解密 " + selectedCount + " 个文件");
+        
+        // 检查解密参数
+        if (encryptionMethod === 0 && passwordField.text.length === 0) {
+            showStatus("请输入密码");
+            return;
+        }
+        
+        if ((encryptionMethod === 1) && 
+            (keySelector.currentIndex < 0 && aesPasswordField.text.length === 0)) {
+            showStatus("请选择密钥或输入密码");
+            return;
+        }
+        
+        if (encryptionMethod === 2 || encryptionMethod === 3) {
+            if (keySelector.currentIndex < 0) {
+                showStatus("请选择密钥");
+                return;
+            }
+            if (keyPasswordField.text.length === 0) {
+                showStatus("请输入私钥密码");
+                return;
+            }
+        }
+        
+        var processedCount = 0;
+        var errorCount = 0;
+        
+        // 处理所有选中的文件
+        for (var i = 0; i < selectedFiles.length; i++) {
+            var index = selectedFiles[i];
+            if (index >= 0 && index < fileModel.count) {
+                var fileName = fileModel.get(index).name;
+                var sourceDir = "";
+                
+                // 获取源文件目录
+                try {
+                    sourceDir = fileModel.get(index).sourceDir;
+                    console.log("获取到源文件目录:", sourceDir);
+                } catch(e) {
+                    console.log("无法获取源目录，使用默认目录:", e);
+                }
+                
+                var inputPath = root.filePath + fileName;
+                var outputPath = "";
+                
+                // 设置输出路径
+                if (sourceDir && sourceDir.length > 0) {
+                    // 使用源目录作为输出目录
+                    var baseName = fileName;
+                    if (baseName.indexOf(".xor") > 0) {
+                        baseName = baseName.substring(0, baseName.lastIndexOf(".xor"));
+                    } else if (baseName.indexOf(".aes") > 0) {
+                        baseName = baseName.substring(0, baseName.lastIndexOf(".aes"));
+                    } else if (baseName.indexOf(".rsa") > 0) {
+                        baseName = baseName.substring(0, baseName.lastIndexOf(".rsa"));
+                    } else if (baseName.indexOf(".enc") > 0) {
+                        baseName = baseName.substring(0, baseName.lastIndexOf(".enc"));
+                    }
+                    outputPath = sourceDir + "decrypted_" + baseName;
+                } else {
+                    // 使用当前目录
+                    var baseName = fileName;
+                    if (baseName.indexOf(".xor") > 0) {
+                        baseName = baseName.substring(0, baseName.lastIndexOf(".xor"));
+                    } else if (baseName.indexOf(".aes") > 0) {
+                        baseName = baseName.substring(0, baseName.lastIndexOf(".aes"));
+                    } else if (baseName.indexOf(".rsa") > 0) {
+                        baseName = baseName.substring(0, baseName.lastIndexOf(".rsa"));
+                    } else if (baseName.indexOf(".enc") > 0) {
+                        baseName = baseName.substring(0, baseName.lastIndexOf(".enc"));
+                    }
+                    outputPath = root.filePath + "decrypted_" + baseName;
+                }
+                
+                console.log("批量解密文件: " + inputPath + " -> " + outputPath);
+                
+                var success = false;
+                // 执行解密
+                switch (encryptionMethod) {
+                    case 0:  // Legacy XOR
+                        directoryHandler.deCodeFile(inputPath, outputPath, passwordField.text);
+                        success = true;
+                        break;
+                        
+                    case 1:  // AES
+                        if (keySelector.currentIndex >= 0) {
+                            // 使用选择的AES密钥
+                            var selectedKeyName = keySelector.model[keySelector.currentIndex].name;
+                            success = directoryHandler.decryptFileAES(inputPath, outputPath, selectedKeyName);
+                        } else if (aesPasswordField.text.length > 0) {
+                            // 使用手动输入的密码
+                            success = directoryHandler.decryptFileAES(inputPath, outputPath, aesPasswordField.text);
+                        }
+                        break;
+                        
+                    case 2:  // RSA
+                        success = directoryHandler.decryptFileRSA(inputPath, outputPath, keySelector.currentText, keyPasswordField.text);
+                        break;
+                        
+                    case 3:  // Hybrid
+                        success = directoryHandler.decryptFileHybrid(inputPath, outputPath, keySelector.currentText, keyPasswordField.text);
+                        break;
+                }
+                
+                if (success) {
+                    processedCount++;
+                } else {
+                    errorCount++;
+                    console.log("解密文件失败: " + fileName);
+                }
+            }
+        }
+        
+        // 显示结果
+        if (errorCount > 0) {
+            showStatus("批量解密完成: " + processedCount + " 个成功，" + errorCount + " 个失败");
+        } else {
+            showStatus("批量解密完成: " + processedCount + " 个文件");
+        }
+        
+        // 退出批量模式
+        batchMode = false;
     }
 }
