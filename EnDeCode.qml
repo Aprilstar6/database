@@ -12,6 +12,9 @@ Item {
     // 公开给外部的接口
     signal filesCleared() // 文件清除完成后的信号
     
+    // 存储最后一次加密/解密的输出文件路径
+    property string lastOutputFilePath: ""
+    
     // 公开的清除文件方法，允许外部组件调用
     function clearFiles() {
         console.log("EnDeCode: 外部调用clearFiles()方法清除文件列表")
@@ -133,6 +136,47 @@ Item {
         showStatus("文件列表已清空" + (success ? "" : "，但实际文件可能未清除"))
         
         return true
+    }
+
+    // 添加加密/解密结果文件到列表
+    function addResultFileToList(filePath) {
+        if (!filePath || filePath.length === 0) {
+            console.log("未提供有效的文件路径，无法添加到列表");
+            return false;
+        }
+        
+        console.log("尝试添加结果文件到列表:", filePath);
+        
+        // 解析文件名和目录
+        var lastSlash = Math.max(filePath.lastIndexOf('/'), filePath.lastIndexOf('\\'));
+        var fileName = filePath.substring(lastSlash + 1);
+        var sourceDir = filePath.substring(0, lastSlash + 1);
+        
+        // 检查文件是否已经在列表中
+        var exists = false;
+        for (var i = 0; i < fileModel.count; i++) {
+            if (fileModel.get(i).name === fileName && 
+                fileModel.get(i).sourceDir === sourceDir) {
+                exists = true;
+                break;
+            }
+        }
+        
+        // 如果不存在则添加
+        if (!exists) {
+            fileModel.append({
+                "name": fileName,
+                "time": new Date().getTime() / 1000,
+                "sourceDir": sourceDir,
+                "fullPath": filePath
+            });
+            
+            console.log("已直接添加结果文件到列表:", fileName);
+            return true;
+        } else {
+            console.log("文件已存在于列表中:", fileName);
+            return false;
+        }
     }
 
     // 调试使用，可以看到组件是否加载
@@ -317,8 +361,48 @@ Item {
         function onOperationComplete(success, message) {
             console.log("操作完成:", success, message)
             showStatus(message)
+            
+            // 不再自动刷新整个文件列表
             if (success) {
-                refreshFileList()
+                // 从消息中尝试检测是否需要添加新文件到列表
+                if (message.includes("加密") || message.includes("解密")) {
+                    // 尝试获取最后一次操作的输出文件路径
+                    // 这个信息需要从上下文中获取，假设存储在一个变量里
+                    if (lastOutputFilePath && lastOutputFilePath.length > 0) {
+                        var lastPath = lastOutputFilePath;
+                        var lastSlash = Math.max(lastPath.lastIndexOf('/'), lastPath.lastIndexOf('\\'));
+                        var onlyFileName = lastPath.substring(lastSlash + 1);
+                        var sourceDir = lastPath.substring(0, lastSlash + 1);
+                        
+                        console.log("添加新生成文件到列表: " + onlyFileName + ", 源目录: " + sourceDir);
+                        
+                        // 检查文件是否已经在列表中
+                        var exists = false;
+                        for (var i = 0; i < fileModel.count; i++) {
+                            if (fileModel.get(i).name === onlyFileName && 
+                                fileModel.get(i).sourceDir === sourceDir) {
+                                exists = true;
+                                break;
+                            }
+                        }
+                        
+                        // 如果不存在则添加
+                        if (!exists) {
+                            fileModel.append({
+                                "name": onlyFileName,
+                                "time": new Date().getTime() / 1000,
+                                "sourceDir": sourceDir,
+                                "fullPath": lastPath
+                            });
+                            
+                            console.log("已添加新文件到列表");
+                        } else {
+                            console.log("文件已存在于列表中");
+                        }
+                    } else {
+                        console.log("没有设置输出文件路径，无法添加结果文件到列表");
+                    }
+                }
             }
         }
 
@@ -1231,6 +1315,9 @@ Item {
                                 
                                 console.log("输入文件路径: " + inputPath);
                                 console.log("输出文件路径: " + outputPath);
+                                
+                                // 保存输出路径以便在操作完成后添加到列表
+                                lastOutputFilePath = outputPath;
 
                                 // 加密方法
                                 switch (encryptionMethod) {
@@ -1240,6 +1327,8 @@ Item {
                                             return
                                         }
                                         directoryHandler.enCodeFile(inputPath, outputPath, passwordField.text)
+                                        // 直接添加结果文件到列表
+                                        addResultFileToList(outputPath)
                                         break
 
                                     case 1:  // AES
@@ -1247,9 +1336,13 @@ Item {
                                             // 使用选择的AES密钥
                                             var selectedKeyName = keySelector.model[keySelector.currentIndex].name
                                             directoryHandler.encryptFileAES(inputPath, outputPath, selectedKeyName)
+                                            // 直接添加结果文件到列表
+                                            addResultFileToList(outputPath)
                                         } else if (aesPasswordField.text.length > 0) {
                                             // 使用手动输入的密码
                                             directoryHandler.encryptFileAES(inputPath, outputPath, aesPasswordField.text)
+                                            // 直接添加结果文件到列表
+                                            addResultFileToList(outputPath)
                                         } else {
                                             showStatus("请选择密钥或输入密码")
                                             return
@@ -1262,6 +1355,8 @@ Item {
                                             return
                                         }
                                         directoryHandler.encryptFileRSA(inputPath, outputPath, keySelector.currentText)
+                                        // 直接添加结果文件到列表
+                                        addResultFileToList(outputPath)
                                         break
 
                                     case 3:  // Hybrid
@@ -1270,6 +1365,8 @@ Item {
                                             return
                                         }
                                         directoryHandler.encryptFileHybrid(inputPath, outputPath, keySelector.currentText)
+                                        // 直接添加结果文件到列表
+                                        addResultFileToList(outputPath)
                                         break
                                 }
                             }
@@ -1366,6 +1463,9 @@ Item {
                                 
                                 console.log("输入文件路径: " + inputPath);
                                 console.log("输出文件路径: " + outputPath);
+                                
+                                // 保存输出路径以便在操作完成后添加到列表
+                                lastOutputFilePath = outputPath;
 
                                 // 解密方法
                                 switch (encryptionMethod) {
@@ -1375,6 +1475,8 @@ Item {
                                             return
                                         }
                                         directoryHandler.deCodeFile(inputPath, outputPath, passwordField.text)
+                                        // 直接添加结果文件到列表
+                                        addResultFileToList(outputPath)
                                         break
 
                                     case 1:  // AES
@@ -1382,9 +1484,13 @@ Item {
                                             // 使用选择的AES密钥
                                             var selectedKeyName = keySelector.model[keySelector.currentIndex].name
                                             directoryHandler.decryptFileAES(inputPath, outputPath, selectedKeyName)
+                                            // 直接添加结果文件到列表
+                                            addResultFileToList(outputPath)
                                         } else if (aesPasswordField.text.length > 0) {
                                             // 使用手动输入的密码
                                             directoryHandler.decryptFileAES(inputPath, outputPath, aesPasswordField.text)
+                                            // 直接添加结果文件到列表
+                                            addResultFileToList(outputPath)
                                         } else {
                                             showStatus("请选择密钥或输入密码")
                                             return
@@ -1401,6 +1507,8 @@ Item {
                                             return
                                         }
                                         directoryHandler.decryptFileRSA(inputPath, outputPath, keySelector.currentText, keyPasswordField.text)
+                                        // 直接添加结果文件到列表
+                                        addResultFileToList(outputPath)
                                         break
 
                                     case 3:  // Hybrid
@@ -1413,6 +1521,8 @@ Item {
                                             return
                                         }
                                         directoryHandler.decryptFileHybrid(inputPath, outputPath, keySelector.currentText, keyPasswordField.text)
+                                        // 直接添加结果文件到列表
+                                        addResultFileToList(outputPath)
                                         break
                                 }
                             }
@@ -1853,11 +1963,41 @@ Item {
                                         height: gridView.cellHeight * 0.92
                                         anchors.centerIn: parent
                                         radius: 8
-                                        color: (batchMode && isFileSelected(index)) ? selectedColor : 
-                                               (selectIndex === index && !batchMode) ? selectedColor : cardColor
+                                        
+                                        // 完全重写颜色逻辑，使其更明确地区分两种模式
+                                        property bool isInBatchMode: batchMode
+                                        property bool isCurrentSelected: selectIndex === index
+                                        property bool isBatchSelected: batchMode && isFileSelected(index)
+                                        
+                                        // 使用属性绑定确保UI状态及时更新
+                                        onIsInBatchModeChanged: {
+                                            // 当批量模式改变时，强制更新颜色和边框
+                                            color = getCardColor();
+                                            border.color = getBorderColor();
+                                        }
+                                        
+                                        // 文件卡片颜色计算函数
+                                        function getCardColor() {
+                                            if (batchMode) {
+                                                return isFileSelected(index) ? selectedColor : cardColor;
+                                            } else {
+                                                return (selectIndex === index) ? selectedColor : cardColor;
+                                            }
+                                        }
+                                        
+                                        // 边框颜色计算函数
+                                        function getBorderColor() {
+                                            if (batchMode) {
+                                                return isFileSelected(index) ? accentColor : borderColor;
+                                            } else {
+                                                return (selectIndex === index) ? primaryColor : borderColor;
+                                            }
+                                        }
+                                        
+                                        // 使用计算函数设置颜色
+                                        color: getCardColor()
                                         border.width: 1
-                                        border.color: (batchMode && isFileSelected(index)) ? accentColor :
-                                                     (selectIndex === index && !batchMode) ? primaryColor : borderColor
+                                        border.color: getBorderColor()
 
                                         // 复选框 - 仅在批量模式下显示
                                         Rectangle {
@@ -1865,9 +2005,39 @@ Item {
                                             width: 22
                                             height: 22
                                             radius: 4
-                                            color: isFileSelected(index) ? accentColor : "white"
+                                            
+                                            // 添加批量模式变化监听
+                                            property bool localBatchMode: batchMode
+                                            onLocalBatchModeChanged: {
+                                                // 批量模式变化时强制刷新状态
+                                                if (localBatchMode) {
+                                                    // 进入批量模式时强制设为未选中状态
+                                                    color = "white";
+                                                    border.color = borderColor;
+                                                    console.log("复选框" + index + "进入批量模式时强制重置");
+                                                }
+                                            }
+                                            
+                                            // 强制重置函数
+                                            function forceReset() {
+                                                color = "white";
+                                                border.color = borderColor;
+                                            }
+                                            
+                                            // 重新定义颜色绑定，确保只在批量模式下有效
+                                            color: {
+                                                // 只有在批量模式下才可能是选中色
+                                                if (!batchMode) return "white";
+                                                // 批量模式下根据选中状态决定颜色
+                                                return isFileSelected(index) ? accentColor : "white";
+                                            }
                                             border.width: 2
-                                            border.color: isFileSelected(index) ? accentColor : borderColor
+                                            border.color: {
+                                                // 只有在批量模式下才可能是选中色
+                                                if (!batchMode) return borderColor;
+                                                // 批量模式下根据选中状态决定边框颜色
+                                                return isFileSelected(index) ? accentColor : borderColor;
+                                            }
                                             anchors.left: parent.left
                                             anchors.top: parent.top
                                             anchors.leftMargin: 8
@@ -1881,7 +2051,8 @@ Item {
                                                 font.pixelSize: 16
                                                 font.bold: true
                                                 color: "white"
-                                                visible: isFileSelected(index)
+                                                // 确保勾选标记只在批量模式且被选中时显示
+                                                visible: batchMode && isFileSelected(index)
                                             }
                                             
                                             // 单独的复选框鼠标区域
@@ -1890,17 +2061,27 @@ Item {
                                                 anchors.margins: -5 // 稍微扩大点击区域
                                                 onClicked: {
                                                     if (batchMode) {
-                                                        // 直接调用选择方法
+                                                        // 记录旧状态
+                                                        var oldSelected = isFileSelected(index);
+                                                        
+                                                        // 切换选择状态
                                                         toggleSelection(index);
                                                         
-                                                        // 手动更新当前项的UI状态
-                                                        checkbox.color = isFileSelected(index) ? accentColor : "white";
-                                                        checkbox.border.color = isFileSelected(index) ? accentColor : borderColor;
-                                                        fileCard.color = isFileSelected(index) ? selectedColor : cardColor;
-                                                        fileCard.border.color = isFileSelected(index) ? accentColor : borderColor;
+                                                        // 获取新状态
+                                                        var newSelected = isFileSelected(index);
+                                                        
+                                                        console.log("复选框点击: 项目 " + index + 
+                                                                   " 从 " + oldSelected + " 改为 " + newSelected);
+                                                        
+                                                        // 直接更新UI状态
+                                                        checkbox.color = newSelected ? accentColor : "white";
+                                                        checkbox.border.color = newSelected ? accentColor : borderColor;
+                                                        fileCard.color = newSelected ? selectedColor : cardColor;
+                                                        fileCard.border.color = newSelected ? accentColor : borderColor;
+                                                    } else {
+                                                        selectIndex = index;
+                                                        selectName = model.name;
                                                     }
-                                                    // 阻止事件传播
-                                                    mouse.accepted = true;
                                                 }
                                             }
                                         }
@@ -1986,14 +2167,26 @@ Item {
                                             anchors.fill: parent
                                             onClicked: {
                                                 if (batchMode) {
-                                                    // 直接调用选择方法
+                                                    // 记录旧状态
+                                                    var oldSelected = isFileSelected(index);
+                                                    
+                                                    // 切换选择状态
                                                     toggleSelection(index);
                                                     
-                                                    // 手动更新当前项的UI状态
-                                                    checkbox.color = isFileSelected(index) ? accentColor : "white";
-                                                    checkbox.border.color = isFileSelected(index) ? accentColor : borderColor;
-                                                    fileCard.color = isFileSelected(index) ? selectedColor : cardColor;
-                                                    fileCard.border.color = isFileSelected(index) ? accentColor : borderColor;
+                                                    // 获取新状态
+                                                    var newSelected = isFileSelected(index);
+                                                    
+                                                    console.log("文件卡片点击: 项目 " + index + 
+                                                               " 从 " + oldSelected + " 改为 " + newSelected);
+                                                    
+                                                    // 直接更新UI状态
+                                                    if (checkbox) {
+                                                        checkbox.color = newSelected ? accentColor : "white";
+                                                        checkbox.border.color = newSelected ? accentColor : borderColor;
+                                                    }
+                                                    
+                                                    fileCard.color = newSelected ? selectedColor : cardColor;
+                                                    fileCard.border.color = newSelected ? accentColor : borderColor;
                                                 } else {
                                                     selectIndex = index;
                                                     selectName = model.name;
@@ -2096,24 +2289,210 @@ Item {
         
         if (batchMode) {
             // 进入批量模式时重置选中状态
-            _selectedFilesObj = ({});
-            selectedFiles = [];
-            selectedCount = 0;
+            clearAllSelections();
             console.log("进入批量模式，已重置选中状态");
         } else {
             // 退出批量模式时清空选择
-            _selectedFilesObj = ({});
-            selectedFiles = [];
-            selectedCount = 0;
+            clearAllSelections();
+            // 确保UI已更新
+            Qt.callLater(function() {
+                for (var i = 0; i < fileModel.count; i++) {
+                    forceUIRefresh(i);
+                }
+                console.log("已强制刷新所有文件项UI");
+            });
             console.log("退出批量模式，已清空选中状态");
         }
     }
     
+    // 清除所有文件选择状态
+    function clearAllSelections() {
+        console.log("清除所有文件选择状态 - 开始");
+        
+        // 保存当前选择状态
+        var hadSelections = false;
+        for (var key in _selectedFilesObj) {
+            if (_selectedFilesObj[key] === true) {
+                hadSelections = true;
+                break;
+            }
+        }
+        
+        // 彻底清除选中对象 - 创建新对象而非修改
+        _selectedFilesObj = {};
+        
+        // 创建新数组
+        selectedFiles = [];
+        selectedCount = 0;
+        
+        // 清除单个选择状态
+        selectIndex = -1;
+        selectName = "";
+        
+        console.log("选择状态已全部重置");
+        
+        // 只有当之前有选择时才强制刷新
+        if (hadSelections) {
+            console.log("检测到之前有选择，开始强制刷新UI");
+            
+            // 强制GridView重新布局
+            if (gridView) {
+                gridView.forceLayout();
+                
+                // 遍历所有可能的索引
+                for (var i = 0; i < fileModel.count; i++) {
+                    // 使所有文件项都强制刷新
+                    var key = "idx_" + i;
+                    console.log("强制刷新文件项: " + i);
+                    forceUIRefresh(i);
+                }
+                
+                // 请求重绘
+                gridView.update();
+            }
+            
+            // 延迟执行另一次刷新，确保状态更新
+            Qt.callLater(function() {
+                if (gridView) {
+                    // 再次强制刷新所有可见项
+                    for (var i = 0; i < fileModel.count; i++) {
+                        forceUIRefresh(i);
+                    }
+                    
+                    // 再次请求重绘
+                    gridView.update();
+                    console.log("延迟刷新完成");
+                }
+            });
+        }
+        
+        console.log("清除所有文件选择状态 - 完成");
+    }
+    
     // 切换批量模式
     function toggleBatchMode() {
-        // 直接修改属性，会触发onBatchModeChanged
-        batchMode = !batchMode
-        console.log("切换批量模式为: " + batchMode)
+        console.log("切换批量模式 - 开始");
+        
+        if (batchMode) {
+            // 退出批量模式
+            console.log("准备退出批量模式");
+            
+            // 先强制清除所有选择状态
+            _selectedFilesObj = {};
+            selectedFiles = [];
+            selectedCount = 0;
+            
+            console.log("已重置选择状态数据");
+            
+            // 延迟一点执行模式切换，确保数据状态先清除
+            var oldBatchMode = batchMode;
+            batchMode = false;
+            
+            // 手动触发每个文件卡片的状态更新
+            if (gridView && gridView.contentItem) {
+                for (var i = 0; i < gridView.contentItem.children.length; i++) {
+                    var item = gridView.contentItem.children[i];
+                    if (item && item.GridView && item.GridView.view === gridView) {
+                        var fileCard = item.children[0]; // fileCard
+                        if (fileCard) {
+                            // 强制更新卡片状态
+                            if (fileCard.isInBatchMode !== batchMode) {
+                                fileCard.isInBatchMode = batchMode;
+                            }
+                            fileCard.color = fileCard.getCardColor();
+                            fileCard.border.color = fileCard.getBorderColor();
+                        }
+                    }
+                }
+                gridView.forceLayout();
+                gridView.update();
+            }
+            
+            // 再次强制刷新所有项
+            for (var j = 0; j < fileModel.count; j++) {
+                forceUIRefresh(j);
+            }
+            
+            console.log("批量模式已切换: " + oldBatchMode + " -> " + batchMode);
+            
+            // 延迟执行最后一次刷新
+            Qt.callLater(function() {
+                for (var i = 0; i < fileModel.count; i++) {
+                    forceUIRefresh(i);
+                }
+                console.log("退出批量模式后的延迟刷新完成");
+            });
+            
+        } else {
+            // 进入批量模式前先清除所有状态
+            // 彻底清除选择状态 - 创建全新对象
+            _selectedFilesObj = {};
+            selectedFiles = [];
+            selectedCount = 0;
+            
+            console.log("准备进入批量模式，已完全重置选择状态");
+            
+            // 然后切换模式
+            batchMode = true;
+            
+            // 强制刷新所有可能的项
+            if (gridView) {
+                gridView.forceLayout();
+                
+                // 先刷新可见项
+                for (var k = 0; k < gridView.contentItem.children.length; k++) {
+                    var item = gridView.contentItem.children[k];
+                    if (item && item.GridView && item.GridView.view === gridView) {
+                        if (item.GridView.indexInModel !== undefined) {
+                            var index = item.GridView.indexInModel;
+                            // 确保复选框显示为未选中状态
+                            var fileCard = item.children[0]; // fileCard
+                            if (fileCard) {
+                                // 查找复选框并重置其状态
+                                for (var c = 0; c < fileCard.children.length; c++) {
+                                    var child = fileCard.children[c];
+                                    if (child.width === 22 && child.height === 22 && child.radius === 4) {
+                                        // 这很可能是复选框
+                                        child.color = "white";
+                                        child.border.color = borderColor;
+                                        console.log("已重置复选框 " + index + " 的状态");
+                                    }
+                                }
+                            }
+                            
+                            // 调用常规刷新
+                            forceUIRefresh(index);
+                        }
+                    }
+                }
+                
+                // 然后刷新所有项
+                for (var m = 0; m < fileModel.count; m++) {
+                    forceUIRefresh(m);
+                }
+                
+                gridView.update();
+            }
+            
+            // 再次延迟执行刷新
+            Qt.callLater(function() {
+                // 再次确保所有选择状态被清除
+                _selectedFilesObj = {};
+                selectedFiles = [];
+                selectedCount = 0;
+                
+                // 再次刷新所有项
+                for (var i = 0; i < fileModel.count; i++) {
+                    forceUIRefresh(i);
+                }
+                
+                console.log("进入批量模式后的延迟刷新完成");
+            });
+            
+            console.log("已进入批量模式");
+        }
+        
+        console.log("切换批量模式 - 完成: 当前模式 = " + batchMode);
     }
     
     // 获取选中的文件总数
@@ -2133,28 +2512,67 @@ Item {
     function forceUIRefresh(index) {
         // 触发每个相关元素的刷新
         if (index >= 0 && index < fileModel.count) {
+            // 获取选中状态
+            var isSelected = isFileSelected(index);
+            
             // 查找对应的GridView代理项强制更新
+            var found = false;
+            
+            // 尝试找到对应的可视项
             for (var i = 0; i < gridView.contentItem.children.length; i++) {
                 var item = gridView.contentItem.children[i];
                 if (item && item.GridView && item.GridView.view === gridView) {
-                    // 尝试访问复选框和文件卡片
-                    var checkbox = item.children[0].children[0]; // checkbox
-                    var fileCard = item.children[0]; // fileCard
-                    
-                    if (checkbox) {
-                        checkbox.color = isFileSelected(index) ? accentColor : "white";
-                        checkbox.border.color = isFileSelected(index) ? accentColor : borderColor;
-                    }
-                    
-                    if (fileCard) {
-                        fileCard.color = isFileSelected(index) ? selectedColor : cardColor;
-                        fileCard.border.color = isFileSelected(index) ? accentColor : borderColor;
+                    // 检查这个代理项是否对应我们要找的索引
+                    if (item.GridView.indexInModel === index) {
+                        var fileCard = item.children[0]; // fileCard
+                        
+                        // 查找复选框并直接操作
+                        if (fileCard) {
+                            for (var c = 0; c < fileCard.children.length; c++) {
+                                var child = fileCard.children[c];
+                                if (child.width === 22 && child.height === 22 && child.radius === 4) {
+                                    // 这很可能是复选框
+                                    var checkbox = child;
+                                    
+                                    // 检查是否有forceReset函数，如果有就调用
+                                    if (checkbox.forceReset) {
+                                        checkbox.forceReset();
+                                        console.log("已调用复选框 " + index + " 的forceReset函数");
+                                    } else {
+                                        // 否则直接设置属性
+                                        if (batchMode) {
+                                            checkbox.color = isSelected ? accentColor : "white";
+                                            checkbox.border.color = isSelected ? accentColor : borderColor;
+                                        } else {
+                                            checkbox.color = "white";
+                                            checkbox.border.color = borderColor;
+                                        }
+                                    }
+                                    
+                                    break; // 找到复选框后退出循环
+                                }
+                            }
+                            
+                            // 更新文件卡片状态
+                            if (!batchMode) {
+                                fileCard.color = (selectIndex === index) ? selectedColor : cardColor;
+                                fileCard.border.color = (selectIndex === index) ? primaryColor : borderColor;
+                            } else {
+                                fileCard.color = isSelected ? selectedColor : cardColor;
+                                fileCard.border.color = isSelected ? accentColor : borderColor;
+                            }
+                        }
+                        
+                        found = true;
+                        break;
                     }
                 }
             }
             
-            console.log("强制刷新文件项 UI: index=" + index + 
-                       ", 选中状态=" + isFileSelected(index));
+            // 如果未找到可视项，标记网格视图需要重新加载
+            if (!found && gridView) {
+                gridView.forceLayout();
+            }
         }
     }
     
@@ -2364,57 +2782,47 @@ Item {
                         if (deleteConfirmDialog.isBatchDelete) {
                             // 批量删除
                             var count = deleteConfirmDialog.fileIndices.length
-                            console.log("开始批量删除 " + count + " 个文件")
+                            console.log("开始批量删除 " + count + " 个文件条目")
                             
-                            for (var i = 0; i < count; i++) {
-                                var idx = deleteConfirmDialog.fileIndices[i];
-                                var name = deleteConfirmDialog.fileNames[i];
-                                
-                                // 删除文件
-                                var filePath = root.filePath + name;
-                                console.log("删除文件: " + filePath)
-                                directoryHandler.deleteFile(filePath);
+                            // 记录删除的文件索引，从大到小排序以防止删除过程中索引变化
+                            var deletedIndices = deleteConfirmDialog.fileIndices.slice().sort(function(a, b) { return b - a });
+                            
+                            // 从模型中删除（从大到小删除避免索引变化）
+                            for (var j = 0; j < deletedIndices.length; j++) {
+                                var index = deletedIndices[j];
+                                if (index >= 0 && index < fileModel.count) {
+                                    console.log("从列表中移除索引: " + index);
+                                    fileModel.remove(index);
+                                }
                             }
                             
-                            // 重置选择
-                            selectIndex = -1;
-                            selectName = "";
-                            
-                            // 退出批量模式
-                            _selectedFilesObj = ({});
-                            selectedFiles = [];
+                            // 重置选择并退出批量模式
                             batchMode = false;
+                            clearAllSelections();
                             
                             // 显示状态消息
-                            showStatus("已删除 " + count + " 个文件");
-                            console.log("批量删除完成，已删除 " + count + " 个文件");
-                            
-                            // 刷新文件列表 - 放在最后，因为此操作会重新加载界面
-                            refreshFileList();
+                            showStatus("已从列表中移除 " + count + " 个文件");
+                            console.log("批量删除完成，已从列表中移除 " + count + " 个文件");
                         } else {
                             // 单个文件删除
                             if (deleteConfirmDialog.fileIndex >= 0 && deleteConfirmDialog.fileIndex < fileModel.count) {
-                                var filePath = root.filePath + deleteConfirmDialog.fileName;
-                                console.log("删除单个文件: " + filePath)
-                                directoryHandler.deleteFile(filePath);
-                                
                                 // 从模型中删除
                                 try {
+                                    console.log("从列表中移除文件索引: " + deleteConfirmDialog.fileIndex);
                                     fileModel.remove(deleteConfirmDialog.fileIndex);
-                                    console.log("已从模型中移除文件索引: " + deleteConfirmDialog.fileIndex)
                                 } catch (e) {
-                                    console.error("从模型移除文件失败: " + e)
+                                    console.error("从模型移除文件失败: " + e);
                                 }
                                 
                                 // 如果删除的是当前选中的文件，重置选择
                                 if (deleteConfirmDialog.fileIndex === selectIndex) {
                                     selectIndex = -1;
                                     selectName = "";
-                                    console.log("已重置文件选择")
+                                    console.log("已重置文件选择");
                                 } else if (deleteConfirmDialog.fileIndex < selectIndex) {
                                     // 如果删除的文件在当前选中文件之前，调整选择索引
                                     selectIndex--;
-                                    console.log("调整选择索引为: " + selectIndex)
+                                    console.log("调整选择索引为: " + selectIndex);
                                 }
                             }
                         }
@@ -2431,19 +2839,62 @@ Item {
     function toggleSelection(index) {
         // 使用字符串键，避免JavaScript自动转换带来的问题
         var key = "idx_" + index;
+        var oldSelected = _selectedFilesObj[key] === true;
         
-        if (_selectedFilesObj[key] === true) {
-            // 取消选择
-            _selectedFilesObj[key] = false;
-            console.log("取消选择: " + key);
-        } else {
-            // 添加选择
-            _selectedFilesObj[key] = true;
-            console.log("添加选择: " + key);
-        }
+        // 取反选择状态
+        _selectedFilesObj[key] = !oldSelected;
+        
+        console.log((oldSelected ? "取消选择: " : "添加选择: ") + key + 
+                   ", 新状态: " + _selectedFilesObj[key]);
         
         // 更新选中文件数组和计数
         updateSelectedFilesArray();
+        
+        // 找到对应的GridView代理项强制更新
+        if (gridView && gridView.contentItem) {
+            for (var i = 0; i < gridView.contentItem.children.length; i++) {
+                var item = gridView.contentItem.children[i];
+                if (item && item.GridView && item.GridView.view === gridView) {
+                    if (item.GridView.indexInModel === index) {
+                        var fileCard = item.children[0]; // fileCard
+                        
+                        // 查找复选框并直接操作
+                        if (fileCard) {
+                            for (var c = 0; c < fileCard.children.length; c++) {
+                                var child = fileCard.children[c];
+                                if (child.width === 22 && child.height === 22 && child.radius === 4) {
+                                    // 这很可能是复选框
+                                    var checkbox = child;
+                                    var isSelected = _selectedFilesObj[key] === true;
+                                    
+                                    // 直接更新复选框状态
+                                    checkbox.color = isSelected ? accentColor : "white";
+                                    checkbox.border.color = isSelected ? accentColor : borderColor;
+                                    
+                                    // 更新文本可见性
+                                    for (var t = 0; t < checkbox.children.length; t++) {
+                                        var textItem = checkbox.children[t];
+                                        if (textItem.text === "✓") {
+                                            textItem.visible = isSelected;
+                                            break;
+                                        }
+                                    }
+                                    
+                                    console.log("已直接更新复选框 " + index + " 的状态");
+                                    break;
+                                }
+                            }
+                            
+                            // 更新文件卡片状态
+                            fileCard.color = _selectedFilesObj[key] ? selectedColor : cardColor;
+                            fileCard.border.color = _selectedFilesObj[key] ? accentColor : borderColor;
+                        }
+                        
+                        break;
+                    }
+                }
+            }
+        }
     }
     
     // 批量加密文件
@@ -2478,6 +2929,7 @@ Item {
         
         var processedCount = 0;
         var errorCount = 0;
+        var processedFiles = []; // 存储成功处理的文件信息
         
         // 处理所有选中的文件
         for (var i = 0; i < selectedFiles.length; i++) {
@@ -2495,7 +2947,7 @@ Item {
                     console.log("获取到源文件目录:", sourceDir);
                     console.log("获取到源文件路径:", inputPath);
                 } catch(e) {
-                    console.log("无法获取源目录，使用默认目录:", e);
+                    console.log("无法获取源目录，使用默认值:", e);
                     sourceDir = "";
                     inputPath = root.filePath + fileName;
                 }
@@ -2527,6 +2979,9 @@ Item {
                 
                 console.log("批量加密文件: " + inputPath + " -> " + outputPath);
                 
+                // 保存最后一个输出路径
+                lastOutputFilePath = outputPath;
+                
                 var success = false;
                 // 执行加密
                 switch (encryptionMethod) {
@@ -2557,10 +3012,47 @@ Item {
                 
                 if (success) {
                     processedCount++;
+                    
+                    // 将处理成功的文件信息存储起来
+                    processedFiles.push({
+                        path: outputPath,
+                        name: fileName + extension,
+                        sourceDir: sourceDir
+                    });
+                    
+                    // 直接添加到文件列表
+                    addResultFileToList(outputPath);
                 } else {
                     errorCount++;
                     console.log("加密文件失败: " + fileName);
                 }
+            }
+        }
+        
+        // 将所有处理成功的文件添加到列表
+        for (var j = 0; j < processedFiles.length; j++) {
+            var fileInfo = processedFiles[j];
+            
+            // 检查文件是否已经在列表中
+            var exists = false;
+            for (var k = 0; k < fileModel.count; k++) {
+                if (fileModel.get(k).name === fileInfo.name && 
+                    fileModel.get(k).sourceDir === fileInfo.sourceDir) {
+                    exists = true;
+                    break;
+                }
+            }
+            
+            // 如果不存在则添加
+            if (!exists) {
+                fileModel.append({
+                    "name": fileInfo.name,
+                    "time": new Date().getTime() / 1000,
+                    "sourceDir": fileInfo.sourceDir,
+                    "fullPath": fileInfo.path
+                });
+                
+                console.log("已添加新文件到列表: " + fileInfo.name);
             }
         }
         
@@ -2571,8 +3063,13 @@ Item {
             showStatus("批量加密完成: " + processedCount + " 个文件");
         }
         
-        // 退出批量模式
-        batchMode = false;
+        // 退出批量模式 - 使用toggleBatchMode确保一致性
+        if (batchMode) {
+            toggleBatchMode();
+        } else {
+            // 以防万一，直接清除选择状态
+            clearAllSelections();
+        }
     }
     
     // 批量解密文件
@@ -2612,6 +3109,7 @@ Item {
         
         var processedCount = 0;
         var errorCount = 0;
+        var processedFiles = []; // 存储成功处理的文件信息
         
         // 处理所有选中的文件
         for (var i = 0; i < selectedFiles.length; i++) {
@@ -2629,12 +3127,13 @@ Item {
                     console.log("获取到源文件目录:", sourceDir);
                     console.log("获取到源文件路径:", inputPath);
                 } catch(e) {
-                    console.log("无法获取源目录，使用默认目录:", e);
+                    console.log("无法获取源目录，使用默认值:", e);
                     sourceDir = "";
                     inputPath = root.filePath + fileName;
                 }
                 
                 var outputPath = "";
+                var outputFileName = "";
                 
                 // 设置输出路径
                 if (sourceDir && sourceDir.length > 0) {
@@ -2649,7 +3148,8 @@ Item {
                     } else if (baseName.indexOf(".enc") > 0) {
                         baseName = baseName.substring(0, baseName.lastIndexOf(".enc"));
                     }
-                    outputPath = sourceDir + "decrypted_" + baseName;
+                    outputFileName = "decrypted_" + baseName;
+                    outputPath = sourceDir + outputFileName;
                 } else {
                     // 使用当前目录
                     var baseName = fileName;
@@ -2662,10 +3162,14 @@ Item {
                     } else if (baseName.indexOf(".enc") > 0) {
                         baseName = baseName.substring(0, baseName.lastIndexOf(".enc"));
                     }
-                    outputPath = root.filePath + "decrypted_" + baseName;
+                    outputFileName = "decrypted_" + baseName;
+                    outputPath = root.filePath + outputFileName;
                 }
                 
                 console.log("批量解密文件: " + inputPath + " -> " + outputPath);
+                
+                // 保存最后一个输出路径
+                lastOutputFilePath = outputPath;
                 
                 var success = false;
                 // 执行解密
@@ -2697,10 +3201,47 @@ Item {
                 
                 if (success) {
                     processedCount++;
+                    
+                    // 将处理成功的文件信息存储起来
+                    processedFiles.push({
+                        path: outputPath,
+                        name: outputFileName,
+                        sourceDir: sourceDir
+                    });
+                    
+                    // 直接添加到文件列表
+                    addResultFileToList(outputPath);
                 } else {
                     errorCount++;
                     console.log("解密文件失败: " + fileName);
                 }
+            }
+        }
+        
+        // 将所有处理成功的文件添加到列表
+        for (var j = 0; j < processedFiles.length; j++) {
+            var fileInfo = processedFiles[j];
+            
+            // 检查文件是否已经在列表中
+            var exists = false;
+            for (var k = 0; k < fileModel.count; k++) {
+                if (fileModel.get(k).name === fileInfo.name && 
+                    fileModel.get(k).sourceDir === fileInfo.sourceDir) {
+                    exists = true;
+                    break;
+                }
+            }
+            
+            // 如果不存在则添加
+            if (!exists) {
+                fileModel.append({
+                    "name": fileInfo.name,
+                    "time": new Date().getTime() / 1000,
+                    "sourceDir": fileInfo.sourceDir,
+                    "fullPath": fileInfo.path
+                });
+                
+                console.log("已添加新文件到列表: " + fileInfo.name);
             }
         }
         
@@ -2711,7 +3252,12 @@ Item {
             showStatus("批量解密完成: " + processedCount + " 个文件");
         }
         
-        // 退出批量模式
-        batchMode = false;
+        // 退出批量模式 - 使用toggleBatchMode确保一致性
+        if (batchMode) {
+            toggleBatchMode();
+        } else {
+            // 以防万一，直接清除选择状态
+            clearAllSelections();
+        }
     }
 }
