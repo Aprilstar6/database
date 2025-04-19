@@ -363,61 +363,34 @@ Item {
                 var lastSlash = Math.max(fileName.lastIndexOf('/'), fileName.lastIndexOf('\\'));
                 var onlyFileName = fileName.substring(lastSlash + 1);
                 var sourceDir = fileName.substring(0, lastSlash + 1);
-                var destPath = root.filePath + onlyFileName;
 
                 console.log("源路径: " + fileName);
                 console.log("源文件目录: " + sourceDir);
-                console.log("目标路径: " + destPath);
-
+                
                 // 保存文件信息到数组
                 filesToImport.push({
                     fullPath: fileName,
                     name: onlyFileName,
-                    sourceDir: sourceDir,
-                    destPath: destPath
+                    sourceDir: sourceDir
                 });
                 
-                // 复制文件到临时目录
-                directoryHandler.copyFile(fileName, destPath);
+                // 直接添加到模型中而不复制文件
+                fileModel.append({
+                    "name": onlyFileName, 
+                    "time": new Date().getTime() / 1000, 
+                    "sourceDir": sourceDir,
+                    "fullPath": fileName
+                });
             }
             
-            // 所有文件复制完成后，一次性刷新文件列表
-            console.log("所有文件已复制，开始刷新文件列表");
-            refreshFileList();
+            // 如果有文件被导入，选择第一个文件
+            if (filesToImport.length > 0 && fileModel.count > 0) {
+                selectIndex = 0;
+                selectName = filesToImport[0].name;
+            }
             
-            // 等待文件列表刷新完成后，设置所有文件的源目录
-            Qt.callLater(function() {
-                console.log("开始为所有导入文件设置源目录信息");
-                
-                // 为每个文件设置源目录
-                for (var j = 0; j < filesToImport.length; j++) {
-                    var fileInfo = filesToImport[j];
-                    
-                    // 在文件模型中查找匹配的文件
-                    for (var k = 0; k < fileModel.count; k++) {
-                        if (fileModel.get(k).name === fileInfo.name) {
-                            // 设置源目录属性
-                            fileModel.setProperty(k, "sourceDir", fileInfo.sourceDir);
-                            console.log("已设置源目录: " + fileInfo.sourceDir + " 到文件: " + fileInfo.name);
-                            break;
-                        }
-                    }
-                }
-                
-                // 如果有文件被导入，选择第一个文件
-                if (filesToImport.length > 0 && fileModel.count > 0) {
-                    for (var m = 0; m < fileModel.count; m++) {
-                        if (fileModel.get(m).name === filesToImport[0].name) {
-                            selectIndex = m;
-                            selectName = filesToImport[0].name;
-                            break;
-                        }
-                    }
-                }
-                
-                // 显示导入完成消息
-                showStatus("已导入 " + filesToImport.length + " 个文件");
-            });
+            // 显示导入完成消息
+            showStatus("已导入 " + filesToImport.length + " 个文件");
         }
         
         onRejected: {
@@ -448,11 +421,20 @@ Item {
                 var fileName = filePathInput.text;
                 var lastSlash = Math.max(fileName.lastIndexOf('/'), fileName.lastIndexOf('\\'));
                 var onlyFileName = fileName.substring(lastSlash + 1);
-                var destPath = root.filePath + onlyFileName;
+                var sourceDir = fileName.substring(0, lastSlash + 1);
 
-                directoryHandler.copyFile(fileName, destPath);
+                // 直接添加到模型中
+                fileModel.append({
+                    "name": onlyFileName, 
+                    "time": new Date().getTime() / 1000, 
+                    "sourceDir": sourceDir,
+                    "fullPath": fileName
+                });
+                
+                selectIndex = fileModel.count - 1;
+                selectName = onlyFileName;
+                
                 showStatus("已导入文件: " + onlyFileName);
-                refreshFileList();
             }
             filePathInput.text = "";
             close();
@@ -534,61 +516,34 @@ Item {
                         var lastSlash = Math.max(fileName.lastIndexOf('/'), fileName.lastIndexOf('\\'));
                         var onlyFileName = fileName.substring(lastSlash + 1);
                         var sourceDir = fileName.substring(0, lastSlash + 1);
-                        var destPath = root.filePath + onlyFileName;
 
                         console.log("源路径: " + fileName);
                         console.log("源文件目录: " + sourceDir);
-                        console.log("目标路径: " + destPath);
-
+                        
                         // 保存文件信息到数组
                         filesToImport.push({
                             fullPath: fileName,
                             name: onlyFileName,
-                            sourceDir: sourceDir,
-                            destPath: destPath
+                            sourceDir: sourceDir
                         });
                         
-                        // 复制文件到临时目录
-                        directoryHandler.copyFile(fileName, destPath);
+                        // 直接添加到模型中而不复制文件
+                        fileModel.append({
+                            "name": onlyFileName, 
+                            "time": new Date().getTime() / 1000, 
+                            "sourceDir": sourceDir,
+                            "fullPath": fileName
+                        });
                     }
                     
-                    // 所有文件复制完成后，一次性刷新文件列表
-                    console.log("所有文件已复制，开始刷新文件列表");
-                    refreshFileList();
+                    // 如果有文件被导入，选择第一个文件
+                    if (filesToImport.length > 0 && fileModel.count > 0) {
+                        selectIndex = fileModel.count - filesToImport.length;
+                        selectName = filesToImport[0].name;
+                    }
                     
-                    // 等待文件列表刷新完成后，设置所有文件的源目录
-                    Qt.callLater(function() {
-                        console.log("开始为所有导入文件设置源目录信息");
-                        
-                        // 为每个文件设置源目录
-                        for (var j = 0; j < filesToImport.length; j++) {
-                            var fileInfo = filesToImport[j];
-                            
-                            // 在文件模型中查找匹配的文件
-                            for (var k = 0; k < fileModel.count; k++) {
-                                if (fileModel.get(k).name === fileInfo.name) {
-                                    // 设置源目录属性
-                                    fileModel.setProperty(k, "sourceDir", fileInfo.sourceDir);
-                                    console.log("已设置源目录: " + fileInfo.sourceDir + " 到文件: " + fileInfo.name);
-                                    break;
-                                }
-                            }
-                        }
-                        
-                        // 如果有文件被导入，选择第一个文件
-                        if (filesToImport.length > 0 && fileModel.count > 0) {
-                            for (var m = 0; m < fileModel.count; m++) {
-                                if (fileModel.get(m).name === filesToImport[0].name) {
-                                    selectIndex = m;
-                                    selectName = filesToImport[0].name;
-                                    break;
-                                }
-                            }
-                        }
-                        
-                        // 显示导入完成消息
-                        showStatus("已导入 " + filesToImport.length + " 个文件");
-                    });
+                    // 显示导入完成消息
+                    showStatus("已导入 " + filesToImport.length + " 个文件");
                 }
             }
         }
@@ -1224,56 +1179,58 @@ Item {
                                     return
                                 }
 
-                                var inputPath = root.filePath + selectName
-                                var outputPath = ""
-                                var sourceDir = ""
+                                var selectedItem = fileModel.get(selectIndex);
+                                var inputPath = "";
+                                var outputPath = "";
+                                var sourceDir = "";
                                 
-                                // 获取源文件的真实目录
+                                // 获取源文件的信息
                                 try {
-                                    sourceDir = fileModel.get(selectIndex).sourceDir
-                                    console.log("获取到源文件目录:", sourceDir)
+                                    sourceDir = selectedItem.sourceDir;
+                                    inputPath = selectedItem.fullPath || (sourceDir + selectedItem.name);
+                                    console.log("获取到源文件目录:", sourceDir);
+                                    console.log("获取到源文件路径:", inputPath);
                                 } catch(e) {
-                                    console.log("无法获取源目录，使用默认目录:", e)
+                                    console.log("无法获取源目录，使用默认值:", e);
+                                    inputPath = root.filePath + selectName;
                                 }
                                 
-                                // 如果有源目录信息，则使用源目录作为输出目录
+                                // 设置输出目录为源文件目录
                                 if (sourceDir && sourceDir.length > 0) {
-                                    inputPath = root.filePath + selectName  // 输入仍然从当前目录
-                                    
                                     if (outputFilename.text.length > 0) {
                                         // 自定义输出文件名
-                                        outputPath = sourceDir + outputFilename.text
+                                        outputPath = sourceDir + outputFilename.text;
                                     } else {
                                         // 自动生成输出文件名
-                                        var extension = ""
+                                        var extension = "";
                                         switch (encryptionMethod) {
-                                            case 0: extension = ".xor"; break
-                                            case 1: extension = ".aes"; break
-                                            case 2: extension = ".rsa"; break
-                                            case 3: extension = ".enc"; break
+                                            case 0: extension = ".xor"; break;
+                                            case 1: extension = ".aes"; break;
+                                            case 2: extension = ".rsa"; break;
+                                            case 3: extension = ".enc"; break;
                                         }
-                                        outputPath = sourceDir + selectName + extension
+                                        outputPath = sourceDir + selectName + extension;
                                     }
                                 } else {
                                     // 没有源目录信息，使用当前目录
-                                    inputPath = root.filePath + selectName
+                                    inputPath = root.filePath + selectName;
                                     
                                     if (outputFilename.text.length > 0) {
-                                        outputPath = root.filePath + outputFilename.text
+                                        outputPath = root.filePath + outputFilename.text;
                                     } else {
-                                        var extension = ""
+                                        var extension = "";
                                         switch (encryptionMethod) {
-                                            case 0: extension = ".xor"; break
-                                            case 1: extension = ".aes"; break
-                                            case 2: extension = ".rsa"; break
-                                            case 3: extension = ".enc"; break
+                                            case 0: extension = ".xor"; break;
+                                            case 1: extension = ".aes"; break;
+                                            case 2: extension = ".rsa"; break;
+                                            case 3: extension = ".enc"; break;
                                         }
-                                        outputPath = root.filePath + selectName + extension
+                                        outputPath = root.filePath + selectName + extension;
                                     }
                                 }
                                 
-                                console.log("输入文件路径: " + inputPath)
-                                console.log("输出文件路径: " + outputPath)
+                                console.log("输入文件路径: " + inputPath);
+                                console.log("输出文件路径: " + outputPath);
 
                                 // 加密方法
                                 switch (encryptionMethod) {
@@ -1351,62 +1308,64 @@ Item {
                                     return
                                 }
 
-                                var inputPath = root.filePath + selectName
-                                var outputPath = ""
-                                var sourceDir = ""
+                                var selectedItem = fileModel.get(selectIndex);
+                                var inputPath = "";
+                                var outputPath = "";
+                                var sourceDir = "";
                                 
-                                // 获取源文件的真实目录
+                                // 获取源文件的信息
                                 try {
-                                    sourceDir = fileModel.get(selectIndex).sourceDir
-                                    console.log("获取到源文件目录:", sourceDir)
+                                    sourceDir = selectedItem.sourceDir;
+                                    inputPath = selectedItem.fullPath || (sourceDir + selectedItem.name);
+                                    console.log("获取到源文件目录:", sourceDir);
+                                    console.log("获取到源文件路径:", inputPath);
                                 } catch(e) {
-                                    console.log("无法获取源目录，使用默认目录:", e)
+                                    console.log("无法获取源目录，使用默认值:", e);
+                                    inputPath = root.filePath + selectName;
                                 }
                                 
-                                // 如果有源目录信息，则使用源目录作为输出目录
+                                // 设置输出目录为源文件目录
                                 if (sourceDir && sourceDir.length > 0) {
-                                    inputPath = root.filePath + selectName  // 输入仍然从当前目录
-                                    
                                     if (outputFilename.text.length > 0) {
                                         // 自定义输出文件名
-                                        outputPath = sourceDir + outputFilename.text
+                                        outputPath = sourceDir + outputFilename.text;
                                     } else {
                                         // 从文件名中去除加密扩展名
-                                        var baseName = selectName
+                                        var baseName = selectName;
                                         if (baseName.indexOf(".xor") > 0) {
-                                            baseName = baseName.substring(0, baseName.lastIndexOf(".xor"))
+                                            baseName = baseName.substring(0, baseName.lastIndexOf(".xor"));
                                         } else if (baseName.indexOf(".aes") > 0) {
-                                            baseName = baseName.substring(0, baseName.lastIndexOf(".aes"))
+                                            baseName = baseName.substring(0, baseName.lastIndexOf(".aes"));
                                         } else if (baseName.indexOf(".rsa") > 0) {
-                                            baseName = baseName.substring(0, baseName.lastIndexOf(".rsa"))
+                                            baseName = baseName.substring(0, baseName.lastIndexOf(".rsa"));
                                         } else if (baseName.indexOf(".enc") > 0) {
-                                            baseName = baseName.substring(0, baseName.lastIndexOf(".enc"))
+                                            baseName = baseName.substring(0, baseName.lastIndexOf(".enc"));
                                         }
-                                        outputPath = sourceDir + "decrypted_" + baseName
+                                        outputPath = sourceDir + "decrypted_" + baseName;
                                     }
                                 } else {
                                     // 没有源目录信息，使用当前目录
-                                    inputPath = root.filePath + selectName
+                                    inputPath = root.filePath + selectName;
                                     
                                     if (outputFilename.text.length > 0) {
-                                        outputPath = root.filePath + outputFilename.text
+                                        outputPath = root.filePath + outputFilename.text;
                                     } else {
-                                        var baseName = selectName
+                                        var baseName = selectName;
                                         if (baseName.indexOf(".xor") > 0) {
-                                            baseName = baseName.substring(0, baseName.lastIndexOf(".xor"))
+                                            baseName = baseName.substring(0, baseName.lastIndexOf(".xor"));
                                         } else if (baseName.indexOf(".aes") > 0) {
-                                            baseName = baseName.substring(0, baseName.lastIndexOf(".aes"))
+                                            baseName = baseName.substring(0, baseName.lastIndexOf(".aes"));
                                         } else if (baseName.indexOf(".rsa") > 0) {
-                                            baseName = baseName.substring(0, baseName.lastIndexOf(".rsa"))
+                                            baseName = baseName.substring(0, baseName.lastIndexOf(".rsa"));
                                         } else if (baseName.indexOf(".enc") > 0) {
-                                            baseName = baseName.substring(0, baseName.lastIndexOf(".enc"))
+                                            baseName = baseName.substring(0, baseName.lastIndexOf(".enc"));
                                         }
-                                        outputPath = root.filePath + "decrypted_" + baseName
+                                        outputPath = root.filePath + "decrypted_" + baseName;
                                     }
                                 }
                                 
-                                console.log("输入文件路径: " + inputPath)
-                                console.log("输出文件路径: " + outputPath)
+                                console.log("输入文件路径: " + inputPath);
+                                console.log("输出文件路径: " + outputPath);
 
                                 // 解密方法
                                 switch (encryptionMethod) {
@@ -2524,18 +2483,23 @@ Item {
         for (var i = 0; i < selectedFiles.length; i++) {
             var index = selectedFiles[i];
             if (index >= 0 && index < fileModel.count) {
-                var fileName = fileModel.get(index).name;
+                var selectedItem = fileModel.get(index);
+                var fileName = selectedItem.name;
                 var sourceDir = "";
+                var inputPath = "";
                 
-                // 获取源文件目录
+                // 获取源文件目录和完整路径
                 try {
-                    sourceDir = fileModel.get(index).sourceDir;
+                    sourceDir = selectedItem.sourceDir;
+                    inputPath = selectedItem.fullPath || (sourceDir + fileName);
                     console.log("获取到源文件目录:", sourceDir);
+                    console.log("获取到源文件路径:", inputPath);
                 } catch(e) {
                     console.log("无法获取源目录，使用默认目录:", e);
+                    sourceDir = "";
+                    inputPath = root.filePath + fileName;
                 }
                 
-                var inputPath = root.filePath + fileName;
                 var outputPath = "";
                 
                 // 设置输出路径
@@ -2653,18 +2617,23 @@ Item {
         for (var i = 0; i < selectedFiles.length; i++) {
             var index = selectedFiles[i];
             if (index >= 0 && index < fileModel.count) {
-                var fileName = fileModel.get(index).name;
+                var selectedItem = fileModel.get(index);
+                var fileName = selectedItem.name;
                 var sourceDir = "";
+                var inputPath = "";
                 
-                // 获取源文件目录
+                // 获取源文件目录和完整路径
                 try {
-                    sourceDir = fileModel.get(index).sourceDir;
+                    sourceDir = selectedItem.sourceDir;
+                    inputPath = selectedItem.fullPath || (sourceDir + fileName);
                     console.log("获取到源文件目录:", sourceDir);
+                    console.log("获取到源文件路径:", inputPath);
                 } catch(e) {
                     console.log("无法获取源目录，使用默认目录:", e);
+                    sourceDir = "";
+                    inputPath = root.filePath + fileName;
                 }
                 
-                var inputPath = root.filePath + fileName;
                 var outputPath = "";
                 
                 // 设置输出路径
