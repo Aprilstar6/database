@@ -13,6 +13,10 @@
 #include <QJsonObject>
 #include <QJsonArray>
 
+// 定义RSA加密的最大数据大小（字节）
+// 对于2048位RSA密钥使用PKCS#1填充，最大为245字节
+#define RSA_MAX_SIZE 245
+
 class CryptoManager : public QObject
 {
     Q_OBJECT

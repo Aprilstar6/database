@@ -334,6 +334,23 @@ bool CryptoManager::encryptFileAES(const QString &inputFile, const QString &outp
 
     QByteArray fileData = inFile.readAll();
     inFile.close();
+    
+    // 检查文件是否为空
+    if (fileData.isEmpty()) {
+        // 创建一个特殊的标记，表示这是一个加密后的空文件
+        QFile outFile(outputFile);
+        if (!outFile.open(QIODevice::WriteOnly)) {
+            emit operationComplete(false, "Failed to open output file");
+            return false;
+        }
+        
+        // 写入空文件标记
+        outFile.write("AES_EMPTY_FILE_MARKER");
+        outFile.close();
+        
+        emit operationComplete(true, "Empty file encrypted successfully with AES");
+        return true;
+    }
 
     // Generate salt and IV
     QByteArray salt = generateRandomBytes(16);
@@ -375,6 +392,20 @@ bool CryptoManager::decryptFileAES(const QString &inputFile, const QString &outp
 
     QByteArray fileData = inFile.readAll();
     inFile.close();
+    
+    // 检查是否是空文件标记
+    if (fileData == "AES_EMPTY_FILE_MARKER") {
+        // 如果是空文件标记，则创建一个空的输出文件
+        QFile outFile(outputFile);
+        if (!outFile.open(QIODevice::WriteOnly)) {
+            emit operationComplete(false, "Failed to open output file");
+            return false;
+        }
+        outFile.close();
+        
+        emit operationComplete(true, "Empty file decrypted successfully with AES");
+        return true;
+    }
 
     if (fileData.size() < 32) { // At least salt + IV
         emit operationComplete(false, "Invalid encrypted file format");
@@ -428,10 +459,28 @@ bool CryptoManager::encryptFileRSA(const QString &inputFile, const QString &outp
 
     QByteArray fileData = inFile.readAll();
     inFile.close();
+    
+    // 检查文件是否为空
+    if (fileData.isEmpty()) {
+        // 创建一个特殊的标记，表示这是一个加密后的空文件
+        QFile outFile(outputFile);
+        if (!outFile.open(QIODevice::WriteOnly)) {
+            emit operationComplete(false, "Failed to open output file");
+            return false;
+        }
+        
+        // 写入空文件标记
+        outFile.write("RSA_EMPTY_FILE_MARKER");
+        outFile.close();
+        
+        emit operationComplete(true, "Empty file encrypted successfully with RSA");
+        return true;
+    }
 
-    // RSA has size limitations, so this is only suitable for small files/messages
-    if (fileData.size() > 245) { // RSA-2048 can encrypt at most 245 bytes
-        emit operationComplete(false, "File too large for RSA encryption. Use hybrid encryption instead.");
+    // RSA can only encrypt small chunks (usually max 245 bytes for 2048 bit RSA)
+    // So we need to check size and potentially encrypt with hybrid method
+    if (fileData.size() > RSA_MAX_SIZE) {
+        emit operationComplete(false, "File too large for RSA encryption. Use hybrid method instead.");
         return false;
     }
 
@@ -466,6 +515,29 @@ bool CryptoManager::decryptFileRSA(const QString &inputFile, const QString &outp
         return false;
     }
 
+    QFile inFile(inputFile);
+    if (!inFile.open(QIODevice::ReadOnly)) {
+        emit operationComplete(false, "Failed to open input file");
+        return false;
+    }
+
+    QByteArray fileData = inFile.readAll();
+    inFile.close();
+    
+    // 检查是否是空文件标记
+    if (fileData == "RSA_EMPTY_FILE_MARKER") {
+        // 如果是空文件标记，则创建一个空的输出文件
+        QFile outFile(outputFile);
+        if (!outFile.open(QIODevice::WriteOnly)) {
+            emit operationComplete(false, "Failed to open output file");
+            return false;
+        }
+        outFile.close();
+        
+        emit operationComplete(true, "Empty file decrypted successfully with RSA");
+        return true;
+    }
+
     // Decrypt the private key with password
     BIO *bio = BIO_new_mem_buf(encryptedPrivateKey.data(), encryptedPrivateKey.length());
     EVP_PKEY *pkey = nullptr;
@@ -493,21 +565,8 @@ bool CryptoManager::decryptFileRSA(const QString &inputFile, const QString &outp
     long privKeySize = BIO_get_mem_data(privBio, &privKeyPtr);
     QByteArray privateKey = QByteArray(privKeyPtr, privKeySize);
 
-    // Read encrypted file
-    QFile inFile(inputFile);
-    if (!inFile.open(QIODevice::ReadOnly)) {
-        BIO_free(privBio);
-        RSA_free(rsa);
-        EVP_PKEY_free(pkey);
-        emit operationComplete(false, "Failed to open input file");
-        return false;
-    }
-
-    QByteArray encryptedData = inFile.readAll();
-    inFile.close();
-
     // Decrypt the data
-    QByteArray decryptedData = rsaDecrypt(encryptedData, privateKey);
+    QByteArray decryptedData = rsaDecrypt(fileData, privateKey);
 
     // Cleanup
     BIO_free(privBio);
@@ -550,6 +609,23 @@ bool CryptoManager::encryptFileHybrid(const QString &inputFile, const QString &o
 
     QByteArray fileData = inFile.readAll();
     inFile.close();
+    
+    // 检查文件是否为空
+    if (fileData.isEmpty()) {
+        // 创建一个特殊的标记，表示这是一个加密后的空文件
+        QFile outFile(outputFile);
+        if (!outFile.open(QIODevice::WriteOnly)) {
+            emit operationComplete(false, "Failed to open output file");
+            return false;
+        }
+        
+        // 写入空文件标记
+        outFile.write("HYBRID_EMPTY_FILE_MARKER");
+        outFile.close();
+        
+        emit operationComplete(true, "Empty file encrypted successfully with Hybrid encryption");
+        return true;
+    }
 
     // Generate a random AES key and IV
     QByteArray aesKey = generateRandomBytes(32); // 256 bit
@@ -589,10 +665,9 @@ bool CryptoManager::encryptFileHybrid(const QString &inputFile, const QString &o
     // Write the IV and encrypted data
     outFile.write(iv);
     outFile.write(encryptedData);
-
     outFile.close();
 
-    emit operationComplete(true, "File encrypted successfully with hybrid encryption (AES+RSA)");
+    emit operationComplete(true, "File encrypted successfully with Hybrid encryption");
     return true;
 }
 
@@ -603,6 +678,29 @@ bool CryptoManager::decryptFileHybrid(const QString &inputFile, const QString &o
     if (!loadKeyFromFile(keyName, dummy, encryptedPrivateKey)) {
         emit operationComplete(false, "Failed to load private key");
         return false;
+    }
+
+    QFile inFile(inputFile);
+    if (!inFile.open(QIODevice::ReadOnly)) {
+        emit operationComplete(false, "Failed to open input file");
+        return false;
+    }
+
+    QByteArray fileData = inFile.readAll();
+    inFile.close();
+    
+    // 检查是否是空文件标记
+    if (fileData == "HYBRID_EMPTY_FILE_MARKER") {
+        // 如果是空文件标记，则创建一个空的输出文件
+        QFile outFile(outputFile);
+        if (!outFile.open(QIODevice::WriteOnly)) {
+            emit operationComplete(false, "Failed to open output file");
+            return false;
+        }
+        outFile.close();
+        
+        emit operationComplete(true, "Empty file decrypted successfully with Hybrid decryption");
+        return true;
     }
 
     // Decrypt the private key with password
@@ -632,72 +730,47 @@ bool CryptoManager::decryptFileHybrid(const QString &inputFile, const QString &o
     long privKeySize = BIO_get_mem_data(privBio, &privKeyPtr);
     QByteArray privateKey = QByteArray(privKeyPtr, privKeySize);
 
-    // Open the encrypted file
-    QFile inFile(inputFile);
-    if (!inFile.open(QIODevice::ReadOnly)) {
-        BIO_free(privBio);
-        RSA_free(rsa);
-        EVP_PKEY_free(pkey);
-        emit operationComplete(false, "Failed to open input file");
-        return false;
-    }
-
-    // Read the encrypted key size
-    QDataStream stream(&inFile);
-    stream.setVersion(QDataStream::Qt_5_15);
-
-    qint32 keySize;
-    stream >> keySize;
-
-    if (keySize <= 0 || keySize > 1024) { // Sanity check
-        inFile.close();
-        BIO_free(privBio);
-        RSA_free(rsa);
-        EVP_PKEY_free(pkey);
-        emit operationComplete(false, "Invalid file format");
-        return false;
-    }
-
-    // Read the encrypted key
-    QByteArray encryptedKey = inFile.read(keySize);
-    if (encryptedKey.size() != keySize) {
-        inFile.close();
-        BIO_free(privBio);
-        RSA_free(rsa);
-        EVP_PKEY_free(pkey);
-        emit operationComplete(false, "Failed to read encrypted key");
-        return false;
-    }
-
-    // Read the IV
-    QByteArray iv = inFile.read(16);
-    if (iv.size() != 16) {
-        inFile.close();
-        BIO_free(privBio);
-        RSA_free(rsa);
-        EVP_PKEY_free(pkey);
-        emit operationComplete(false, "Failed to read IV");
-        return false;
-    }
-
-    // Read the encrypted data
-    QByteArray encryptedData = inFile.readAll();
-    inFile.close();
-
-    // Decrypt the AES key with RSA
-    QByteArray aesKey = rsaDecrypt(encryptedKey, privateKey);
-
     // Cleanup RSA resources
     BIO_free(privBio);
     RSA_free(rsa);
     EVP_PKEY_free(pkey);
 
-    if (aesKey.isEmpty()) {
-        emit operationComplete(false, "Failed to decrypt AES key");
+    // Read from the encrypted file
+    QDataStream stream(fileData);
+    stream.setVersion(QDataStream::Qt_5_15);
+
+    // Read the encrypted key size
+    qint32 encryptedKeySize;
+    stream >> encryptedKeySize;
+
+    if (encryptedKeySize <= 0 || encryptedKeySize > fileData.size()) {
+        emit operationComplete(false, "Invalid encrypted file format");
         return false;
     }
 
-    // Decrypt the data with AES
+    // Calculate the position after the key size (4 bytes)
+    int pos = sizeof(qint32);
+
+    // Extract the encrypted key
+    QByteArray encryptedKey = fileData.mid(pos, encryptedKeySize);
+    pos += encryptedKeySize;
+
+    // Extract the IV (16 bytes)
+    QByteArray iv = fileData.mid(pos, 16);
+    pos += 16;
+
+    // Extract the encrypted data
+    QByteArray encryptedData = fileData.mid(pos);
+
+    // Decrypt the AES key using RSA
+    QByteArray aesKey = rsaDecrypt(encryptedKey, privateKey);
+
+    if (aesKey.isEmpty()) {
+        emit operationComplete(false, "Failed to decrypt AES key with RSA");
+        return false;
+    }
+
+    // Decrypt the data using AES
     QByteArray decryptedData = aesDecrypt(encryptedData, aesKey, iv);
 
     if (decryptedData.isEmpty()) {
@@ -715,7 +788,7 @@ bool CryptoManager::decryptFileHybrid(const QString &inputFile, const QString &o
     outFile.write(decryptedData);
     outFile.close();
 
-    emit operationComplete(true, "File decrypted successfully with hybrid encryption (AES+RSA)");
+    emit operationComplete(true, "File decrypted successfully with Hybrid decryption");
     return true;
 }
 

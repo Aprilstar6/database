@@ -19,6 +19,29 @@ void encryptFile(const char* inputFile, const char* outputFile, const char* key)
         exit(EXIT_FAILURE);
     }
 
+    // 检查文件是否为空
+    fseek(inFile, 0, SEEK_END);
+    long fileSize = ftell(inFile);
+    rewind(inFile);
+    
+    if (fileSize == 0) {
+        // 如果是空文件，则创建一个特殊标记
+        FILE* outFile = fopen(outputFile, "wb");
+        if (!outFile) {
+            perror("Failed to open output file");
+            fclose(inFile);
+            exit(EXIT_FAILURE);
+        }
+        
+        // 写入一个特殊标记，表示这是一个加密后的空文件
+        const char emptyFileMarker[] = "EMPTY_FILE_MARKER";
+        fwrite(emptyFileMarker, sizeof(char), strlen(emptyFileMarker), outFile);
+        
+        fclose(inFile);
+        fclose(outFile);
+        return;
+    }
+
     FILE* outFile = fopen(outputFile, "wb");
     if (!outFile) {
         perror("Failed to open output file");
@@ -42,7 +65,51 @@ void encryptFile(const char* inputFile, const char* outputFile, const char* key)
 
 // Legacy decryption function (XOR is symmetrical)
 void decryptFile(const char* inputFile, const char* outputFile, const char* key) {
-    encryptFile(inputFile, outputFile, key);
+    FILE* inFile = fopen(inputFile, "rb");
+    if (!inFile) {
+        perror("Failed to open input file");
+        exit(EXIT_FAILURE);
+    }
+    
+    // 检查文件是否为加密的空文件
+    char buffer[17] = {0}; // 足够存储"EMPTY_FILE_MARKER"和结束符
+    size_t bytesRead = fread(buffer, 1, 16, inFile);
+    buffer[bytesRead] = '\0';
+    
+    if (strcmp(buffer, "EMPTY_FILE_MARKER") == 0) {
+        // 如果是加密的空文件，则创建一个空的输出文件
+        fclose(inFile);
+        FILE* outFile = fopen(outputFile, "wb");
+        if (!outFile) {
+            perror("Failed to open output file");
+            exit(EXIT_FAILURE);
+        }
+        fclose(outFile);
+        return;
+    }
+    
+    // 对于非空文件，重置文件指针并进行正常解密
+    rewind(inFile);
+    
+    FILE* outFile = fopen(outputFile, "wb");
+    if (!outFile) {
+        perror("Failed to open output file");
+        fclose(inFile);
+        exit(EXIT_FAILURE);
+    }
+
+    int keyLen = strlen(key);
+    int keyIndex = 0;
+
+    int ch;
+    while ((ch = fgetc(inFile)) != EOF) {
+        int decryptedCh = ch ^ key[keyIndex];
+        fputc(decryptedCh, outFile);
+        keyIndex = (keyIndex + 1) % keyLen;  // Cycle through the key
+    }
+
+    fclose(inFile);
+    fclose(outFile);
 }
 }
 
